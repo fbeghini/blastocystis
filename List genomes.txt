@@ -1,0 +1,39 @@
+Full Genome	
+Cryptosporidium hominis 	G000006425
+Cryptosporidium parvum 		G000165345 G000209695
+Cyclospora cayetanensis		G000769155
+Entamoeba dispar			folder
+Giardia duodenalis			folder as Giardia intestinalis			
+Entamoeba histolytica		folder
+Entamoeba nuttalli			folder
+Blastocystis ST4			folder
+Blastocystis ST7			folder
+
+rRNA
+Dientamoeba fragilis		16S-like 18S
+Pentatrichomonas hominis	18S
+Tetratrichomonas sp.		18S 28S 5.8S 16S-like
+Enteromonas hominis			18S
+Entamoeba dispar			18S	28S
+Entamoeba polecki			18S 16S-like
+Endolimax nana				16S-like
+Sarcocystis hominis			18S
+Chilomastix mesnili			18S 28S
+Entamoeba moshkovskii		18S
+Entamoeba coli				18S
+Entameoba hartmanni			18S
+Cystoisospora belli			18S
+Cryptosporidium meleagridis	18S
+Cryptosporidium canis 		18S
+Cryptosporidium felis		18S
+Cryptosporidium cuniculus	18S
+Cryptosporidium viatorum	18S
+Sarcocystis suihominis		18S
+Balantidium coli			18S partial 5.8S partial
+
+Niente
+Retortomonas intestinalis
+Trichomonas hominis
+
+Simili
+Iodamoeba butschli
