@@ -1,0 +1,50 @@
+import os, argparse, sys, subprocess, tarfile
+from Bio import SeqIO
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--ref", help="FASTA containing the reference genoma")
+parser.add_argument("--metagenomes", help="Comma-separated list of metagenomes to analyze")
+parser.add_argument("--input-type", help="FR for the Illumina paired ends, U for unpaired reads", choices=["FR","U"])
+parser.add_argument("--basename-index", help="Basename for the index")
+parser.add_argument("--output-folder", help="Output folder")
+args = parser.parse_args()
+
+#def buildDataset(sequences):
+	# try:
+	# 	for s in sequences:
+	# 		subprocess.Popen("args")
+
+
+#Build fasta dataset
+
+#Build bowtie2 index and inspect
+subprocess.Popen("bowtie2-build %s %s/%s" % (args.ref, args.basename_index, args.basename_index), shell=True)
+subprocess.Popen("samtools faidx %s" % (args.ref))
+
+#Extract mates for paired inputs with FR
+if(args.input_type == 'FR'):
+	for mg in args.metagenomes:
+
+		outname = mg.split('/')[-1].split('.')[1]
+		mates = tarfile.open(mg, 'r:bz2').getnames()
+		mate1 = [m for m in mates if "_1" in m]
+		mate2 = [m for m in mates if "_2" in m]
+
+		bam = subprocess.Popen(
+			"bowtie2 --no-unal -a --very-sensitive -p 4 -x %s/%s "
+			"-1 <(tar -xjf %s {%s} -O) "
+			"-2 <(tar -xjf %s {%s} -O) "
+			"| samtools view -Sb -" % (args.basename_index,args.basename_index,mg, ','.join(mate1), mg, ','.join(mate2))
+			, shell=True, executable='/bin/bash', stdout=subprocess.PIPE)
+
+# elif(args.input_type == 'U'):
+# bzip the unpaired input and use it as stdin for bowtie2
+
+		subprocess.Popen(
+			"samtools sort - %s/%s.bam" % (args.output_folder, outname), shell=True, stdin=bam.stdout)
+
+		mpileup = subprocess.Popen("samtools mpileup -uf %s %s/%s.bam | bcftools view -bvcg -" % (args.ref, args.output_folder, outname), shell=True, stdout=subprocess.PIPE)
+
+
+		with open("%s/%s.bcf" % (args.output_folder, outname)) as bcfout:
+			bcfout.writelines(mpileup.stdout)

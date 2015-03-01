@@ -34,6 +34,10 @@ Balantidium coli			18S partial 5.8S partial
 Niente
 Retortomonas intestinalis
 Trichomonas hominis
-
-Simili
 Iodamoeba butschli
+
+LSU
+SILVA_119_LSURef_tax_silva.fasta.gz
+
+SSU
+SILVA_119_SSURef_Nr99_tax_silva.fasta.gz

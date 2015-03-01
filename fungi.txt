@@ -1,0 +1,32 @@
+Aspergillus clavatus 
+Aspergillus flavus 
+Aspergillus fumigatu
+Aspergillus niger
+
+Candida albicans
+Candida	dublinensis
+Candida	glabrata
+Candida	orthopsilosis
+Candida	parapsilosis
+Candida	tenuis
+
+Coccidioides immitis
+Coccidioides posadasii
+
+Cryptococcus neoformans
+Cryptococcus gattii
+
+Histoplasma capsulatum
+
+Pneumocystis jirovecii
+
+Sporothrix schenckii
+Sporothrix pallida
+
+Malassezia restricta
+Malassezia globosa
+Malassezia sympodialis
+
+Trichophyton tonsurans
+Trichophyton soudanense
+Trichophyton rubrum

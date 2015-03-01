@@ -1,0 +1,27 @@
+import os, argparse, sys, subprocess, tarfile
+from Bio import SeqIO
+
+parser = argparse.ArgumentParser()
+parser.add_argument("")
+	
+def buildDataset(sequences):
+	# try:
+	# 	for s in sequences:
+	# 		subprocess.Popen("args")
+
+
+#Build fasta dataset
+
+#Build bowtie2 index and inspect
+subprocess.Popen("bowtie2-build mycobacteria/mycobacteria_samples.fa mycobacteria/mycobacteria")
+#Extract mates
+
+for mg in metagenomes:
+	mate1 = []
+	mate2 = []
+
+	mgfile = tarfile.open(mg, 'r:bz2')
+	mates = tarfile.list(verbose=False)
+	mate1 = [m for m in mates if "_1" in m]
+	mate2 = [m for m in mates if "_2" in m]
+
