@@ -15,13 +15,7 @@ args = parser.parse_args()
 
 tempdir = "/scratch/sharedCM/users/beghini"
 
-#def buildDataset(sequences):
-	# try:
-	# 	for s in sequences:
-	# 		subprocess.Popen("args")
 if args.ref:
-	#Build fasta dataset
-	#Convert dataset
 	#Build bowtie2 index and inspect
 	if args.force:
 		print "Building the index..."
@@ -56,7 +50,7 @@ if args.ref:
 			elif(args.input_type == 'SRA'):
 				com = "fastq-dump -Z %s --split-spot | bowtie2 --no-unal -a --very-sensitive -p 6 -x %s -U - | samtools view -Sb -" % (mg,args.basename_index)
 			#print com
-			print "Aligning and sorting..."
+			print "Aligning and sorting %s ..." %mg
 			bam = subprocess.Popen(com, shell=True, stdout=_bam)
 			bam.wait()
 			sort =subprocess.Popen("samtools sort -	 %s -@ 4 -m 6G" % (outname), shell=True, stdin=_bam)
