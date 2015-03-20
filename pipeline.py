@@ -73,8 +73,15 @@ if args.ref:
 			bcfout.writelines(mpileup.stdout)
 
 		bed = subprocess.Popen("bedtools genomecov -ibam %s.bam -g %s.fai" % (outname, args.ref), shell=True, stdout=subprocess.PIPE)
-		
-		with open("%s_coverage.tsv" % (outname),"w") as tsvout:
-			tsvout.writelines(bed.stdout)
+		bed.wait()
 
+		g = subprocess.Popen('grep -P "\t0\t"', shell=True, stdin=bed.stdout)
+		
+		with open("%s.tsv" % (outname),"w") as tsvout:
+			tsvout.writelines(g.stdout)
+		
+		bed = subprocess.Popen("bedtools genomecov -bg -ibam %s.bam -g %s.fai" % (outname, args.ref), shell=True, stdout=subprocess.PIPE)
+		
+		with open("%s.bed" % (outname),"w") as bedout:
+			bedout.writelines(bed.stdout)
 		# print "bedtools genomecov -bg -max 1 -ibam %s.bam -g %s.fai" % (outname, args.ref)

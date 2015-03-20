@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from Bio import Entrez
 Entrez.email = "francesco.beghini@studenti.unitn.it"
 handle = Entrez.esearch(db="nucleotide", term="Giardia", retmax="19684")

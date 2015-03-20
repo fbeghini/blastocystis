@@ -1,11 +1,12 @@
+#!/usr/bin/env python
 import sys, argparse
 from Bio import SeqIO
-from Bio.SeqUtils.CheckSum import seguid 
+from Bio.SeqUtils.CheckSum import seguid
 
-def sequence_cleaner(fasta_file):
+def sequence_cleaner(fastafile):
 	ids = set()
 	checksums=set()
-	for record in SeqIO.parse(fasta_file, "fasta"):
+	for record in SeqIO.parse(fastafile, "fasta"):
 		if seguid(record.seq) in checksums or record.id in ids:
 			print "Ignoring %s" % record.description
 			continue

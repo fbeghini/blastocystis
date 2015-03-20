@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from Bio import SeqIO
 import os
 #with open("/banche_dati/sharedCM/projects/mycobacteria/genomes/Giardia.fa","a+") as out:
