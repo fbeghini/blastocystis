@@ -12,8 +12,8 @@ parser.add_argument("ssumap")
 
 args = parser.parse_args()
 
-Entrez.email	=	"fbeghini (at) outlook (dot) com"
-retmax			=	1000
+Entrez.email	=	"fbeghini (at) live (dot) com"
+retmax		=	1000
 
 # Genes: Build index with faidx and associate id -> organism
 # Full genomes idem
@@ -47,24 +47,23 @@ if args.dataset and args.output:
 					ids = []
 					result = []
 
-					if :
-						openm = open if any(f in extention for f in ["fasta","fa","fna","ffn"]) else gzip.open if 'gz' in extention else BZ2File if "bz2" in extention else open
+					openm = open if any(f in extention for f in ["fasta","fa","fna","ffn"]) else gzip.open if 'gz' in extention else BZ2File if "bz2" in extention else open
 					handle = openm(path+"/"+g)
 					if 'genes' in path:
 						print g
 						oname = g.split('/')[-1].split('.')[0]
 						for seq in SeqIO.parse(handle, "fasta"):
-							tsv.write( "%s;frag_%s\n" % (seq.id, oname))
+							tsv.write( "%s;frag_%s;%i\n" % (seq.id, oname, len(seq.seq) ))
 					elif 'rRNA' in path:
 						print g
 						for seq in SeqIO.parse(handle, "fasta"):
 							_id = seq.id.split('.')[0]
 							type = "28S" if _id in lsu else "18S" if _id in ssu else "rRNA"
-							tsv.write( "%s;%s_%s_%s\n" % (seq.id, type, seq.description.split(";")[-1], seq.id))
+							tsv.write( "%s;%s_%s_%s;%i\n" % (seq.id, type, seq.description.split(";")[-1], seq.id, len(seq.seq)))
 					elif 'full_genomes' in path:
 						print g
 						for seq in SeqIO.parse(handle, "fasta"):
-							tsv.write( "%s;refg_%s\n" % (seq.id, " ".join(seq.description.split(" ")[1:3])))
+							tsv.write( "%s;refg_%s;%i\n" % (seq.id, " ".join(seq.description.split(" ")[1:3]), len(seq.seq)))
 					elif 'genomes' in path:
 						print g
 						for seq in SeqIO.parse(handle, "fasta"):
@@ -91,7 +90,7 @@ if args.dataset and args.output:
 						for r in result:
 							seqids = r["GBSeq_other-seqids"]
 							seqids.reverse()
-							tsv.write( "%s;gene_%s\n" % ("|".join(seqids), r["GBSeq_source"]))
+							tsv.write( "%s;genes_%s;%s\n" % ("|".join(seqids), r["GBSeq_source"], r["GBSeq_length"]))
 						# except:
 						# 	print sys.exc_info()
 # NCBI 

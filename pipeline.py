@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#! /usr/bin/env python
 
 import os, argparse, sys, subprocess, tarfile
 from Bio import SeqIO
@@ -15,73 +15,80 @@ args = parser.parse_args()
 
 tempdir = "/scratch/sharedCM/users/beghini"
 
-if args.ref:
-	#Build bowtie2 index and inspect
+if args.ref and args.input_type and args.metagenomes and args.basename_index :
+	# args.basename_index = os.path.abspath(args.basename_index)
+	# args.ref = os.path.abspath(args.ref)
 	if args.force:
 		print "Building the index..."
 		subprocess.Popen("bowtie2-build %s %s" % (args.ref, args.basename_index), shell=True)
 		subprocess.Popen("samtools faidx %s" % (args.ref))
 
 	for mg in args.metagenomes.split(','):
-		outname = args.output_folder + "/" + mg.split('/')[-1].split('.')[0]
-		#print outname	
-		with NamedTemporaryFile(delete=True) as _bam:
-			#Extract mates for paired inputs with FR
-			if(args.input_type == 'FR'):
-				print "Listing the content of %s ..." %mg
-				mates = tarfile.open(mg, 'r:bz2').getnames()
-				mate1 = [m for m in mates if "_1" in m]
-				mate2 = [m for m in mates if "_2" in m]
+		outname = os.path.abspath(args.output_folder) + "/" + mg.split('/')[-1].split('.')[0]
+		#Extract mates for paired inputs with FR
 
-				forward = NamedTemporaryFile(delete=True, dir=tempdir)
-				reverse = NamedTemporaryFile(delete=True, dir=tempdir)
+		if(args.input_type == 'FR'):
+			print "Listing the content of %s ..." %mg
+			mates = tarfile.open(mg, 'r:bz2').getnames()
+			mate1 = [m for m in mates if "_1" in m]
+			mate2 = [m for m in mates if "_2" in m]
 
-				print "\tBuilding forward mate"
-				tf = subprocess.Popen("tar -xjf %s %s -O"%(mg, " ".join(mate1)), shell=True, stdout=forward)
-				tf.wait()
-				print "\tBuiling reverse mate"
-				tr = subprocess.Popen("tar -xjf %s %s -O"%(mg, " ".join(mate2)), shell=True, stdout=reverse)
-				tr.wait()
-				print "Done."
-				com = "bowtie2 --no-unal -a --very-sensitive -p 6 -x %s -1 %s -2 %s | samtools view -Sb -" % (args.basename_index, forward.name, reverse.name)
-			# bzip the unpaired input and use it as stdin for bowtie2
-			elif(args.input_type == 'U'):
-				com = "tar -xjv %s -O | bowtie2 --no-unal -a --very-sensitive -p 6 -x %s -U - | samtools view -Sb -" % (mg,args.basename_index)
-			elif(args.input_type == 'SRA'):
-				com = "fastq-dump -Z %s --split-spot | bowtie2 --no-unal -a --very-sensitive -p 6 -x %s -U - | samtools view -Sb -" % (mg,args.basename_index)
-			#print com
-			print "Aligning and sorting %s ..." %mg
+			forward = NamedTemporaryFile(delete=True, dir=tempdir)
+			reverse = NamedTemporaryFile(delete=True, dir=tempdir)
+
+			print "\tBuilding forward mate..."
+			tf = subprocess.Popen("tar -xjf %s %s -O"%(mg, " ".join(mate1)), shell=True, stdout=forward)
+			tf.communicate()
+			print "\tBuiling reverse mate..."
+			tr = subprocess.Popen("tar -xjf %s %s -O"%(mg, " ".join(mate2)), shell=True, stdout=reverse)
+			tr.communicate()
+			print "Done!"
+			com = "bowtie2 --no-unal -a --very-sensitive -p 2 -x %s -1 %s -2 %s | samtools view -Sb -" % (args.basename_index, forward.name, reverse.name)
+
+		elif(args.input_type == 'U'):
+			com = "tar -xjf %s -O | bowtie2 --no-unal -a --very-sensitive -p 2 -x %s -U - | samtools view -Sb -" % (mg,args.basename_index)
+		
+		elif(args.input_type == 'SRA'):
+			print "fastq dump of %s..." % mg
+			dump = subprocess.Popen("fastq-dump %s --split-3 -O %s" % (mg, tempdir), shell=True)
+			dump.wait()
+			mgname = mg.split(".")[0]
+			com = "bowtie2 --no-unal -a --very-sensitive -p 2 -x %s -1 %s_1.fastq -2 %s_2.fastq | samtools view -Sb -" % (args.basename_index, tempdir+"/"+mgname, tempdir+"/"+mgname)
+
+		with NamedTemporaryFile(delete=True, dir=tempdir) as _bam:
 			bam = subprocess.Popen(com, shell=True, stdout=_bam)
-			bam.wait()
-			sort =subprocess.Popen("samtools sort -	 %s -@ 4 -m 6G" % (outname), shell=True, stdin=_bam)
-			sort.wait()
-			if args.input_type=="FR":
-				forward.close()
-				reverse.close()
-		#print outname
+			print "Aligning %s..." %mg
+			bam.communicate()
+			bt2ret = bam.returncode
+			sort =subprocess.Popen("samtools sort - %s -@ 4 -m 6G" % (outname), shell=True, stdin=_bam)
+			print "Sorting %s ..." %mg
+			sort.communicate()
+		
+		if args.input_type=="SRA":
+			os.remove(tempdir+"/"+mgname+"_1.fastq")
+			os.remove(tempdir+"/"+mgname+"_2.fastq")
+		
+		if args.input_type=="FR":
+			forward.close()
+			reverse.close()
 
-		index = subprocess.Popen("samtools index %s.bam" % (outname), shell=True)
-		index.wait()
-		
-		# print "samtools sort - %s.bam" % (outname)
-		# print "samtools index %s.bam" % (outname)
-		# print "samtools mpileup -uf %s %s.bam | bcftools view -bvcg -" % (args.ref, outname)
-		
-		mpileup = subprocess.Popen("samtools mpileup -uf %s %s.bam | bcftools view -bvcg -" % (args.ref, outname), shell=True, stdout=subprocess.PIPE)
-	
-		with open("%s.bcf" % (outname),"w") as bcfout:
-			bcfout.writelines(mpileup.stdout)
+		if bt2ret==0:
+			index = subprocess.Popen("samtools index %s.bam" % (outname), shell=True)
+			index.wait()
 
-		bed = subprocess.Popen("bedtools genomecov -ibam %s.bam -g %s.fai" % (outname, args.ref), shell=True, stdout=subprocess.PIPE)
-		bed.wait()
+			mpileup = subprocess.Popen("samtools mpileup -uf %s %s.bam | bcftools view -bvcg -" % (args.ref, outname), shell=True, stdout=subprocess.PIPE)
+			
+			with open("%s.bcf" % (outname),"w") as bcfout:
+				bcfout.writelines(mpileup.communicate()[0])
 
-		g = subprocess.Popen('grep -P "\t0\t"', shell=True, stdin=bed.stdout)
-		
-		with open("%s.tsv" % (outname),"w") as tsvout:
-			tsvout.writelines(g.stdout)
-		
-		bed = subprocess.Popen("bedtools genomecov -bg -ibam %s.bam -g %s.fai" % (outname, args.ref), shell=True, stdout=subprocess.PIPE)
-		
-		with open("%s.bed" % (outname),"w") as bedout:
-			bedout.writelines(bed.stdout)
-		# print "bedtools genomecov -bg -max 1 -ibam %s.bam -g %s.fai" % (outname, args.ref)
+			bed = subprocess.Popen("bedtools genomecov -ibam %s.bam -g %s.fai" % (outname, args.ref), shell=True, stdout=subprocess.PIPE)
+			
+			with open("%s.tsv" % (outname),"w") as tsvout:
+				tsvout.writelines(bed.communicate()[0])
+			
+			bed = subprocess.Popen("bedtools genomecov -bg -ibam %s.bam -g %s.fai | sort" % (outname, args.ref), shell=True, stdout=subprocess.PIPE)
+
+			with open("%s.bed" % (outname),"w") as bedout:
+				bedout.writelines(bed.communicate()[0])
+		else:
+			print "bowtie2 failed to align %s" % mg
