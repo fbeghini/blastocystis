@@ -6,22 +6,20 @@ from tempfile import NamedTemporaryFile
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--ref", help="FASTA containing the reference genoma")
-parser.add_argument("--input-type", help="FR for the Illumina paired ends, U for unpaired reads, SRA", choices=["FR","U", "SRA"])
+parser.add_argument("--input-type", help="FR for the Illumina paired ends, U for unpaired reads, SRA, GZ", choices=["FR","U","GZ", "SRA"])
 parser.add_argument("--metagenomes", help="Comma-separated list of metagenomes to analyze")
 parser.add_argument("--basename-index", help="Basename for the index")
 parser.add_argument("--output-folder", help="Output folder")
-parser.add_argument("--force", help="Force the rebuild of the index", action='store_true')
 args = parser.parse_args()
 
 tempdir = "/scratch/sharedCM/users/beghini"
 
 if args.ref and args.input_type and args.metagenomes and args.basename_index :
-	# args.basename_index = os.path.abspath(args.basename_index)
-	# args.ref = os.path.abspath(args.ref)
-	if args.force:
-		print "Building the index..."
-		subprocess.Popen("bowtie2-build %s %s" % (args.ref, args.basename_index), shell=True)
-		subprocess.Popen("samtools faidx %s" % (args.ref))
+
+	# if args.force:
+	# 	print "Building the index..."
+	# 	subprocess.Popen("bowtie2-build %s %s" % (args.ref, args.basename_index), shell=True)
+	# 	subprocess.Popen("samtools faidx %s" % (args.ref))
 
 	for mg in args.metagenomes.split(','):
 		outname = os.path.abspath(args.output_folder) + "/" + mg.split('/')[-1].split('.')[0]
@@ -48,6 +46,9 @@ if args.ref and args.input_type and args.metagenomes and args.basename_index :
 		elif(args.input_type == 'U'):
 			com = "tar -xjf %s -O | bowtie2 --no-unal -a --very-sensitive -p 2 -x %s -U - | samtools view -Sb -" % (mg,args.basename_index)
 		
+		elif(args.input_type=='GZ'):
+			com = "zcat %s | bowtie2 --no-unal -a --very-sensitive -p 2 -x %s -U - | samtools view -Sb -" % (mg,args.basename_index)
+
 		elif(args.input_type == 'SRA'):
 			print "fastq dump of %s..." % mg
 			dump = subprocess.Popen("fastq-dump %s --split-3 -O %s" % (mg, tempdir), shell=True)
@@ -81,7 +82,7 @@ if args.ref and args.input_type and args.metagenomes and args.basename_index :
 			with open("%s.bcf" % (outname),"w") as bcfout:
 				bcfout.writelines(mpileup.communicate()[0])
 
-			bed = subprocess.Popen("bedtools genomecov -ibam %s.bam -g %s.fai" % (outname, args.ref), shell=True, stdout=subprocess.PIPE)
+			bed = subprocess.Popen("bedtools genomecov -ibam %s.bam -g %s.fai | sort" % (outname, args.ref), shell=True, stdout=subprocess.PIPE)
 			
 			with open("%s.tsv" % (outname),"w") as tsvout:
 				tsvout.writelines(bed.communicate()[0])
