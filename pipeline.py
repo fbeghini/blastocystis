@@ -82,12 +82,12 @@ if args.ref and args.input_type and args.metagenomes and args.basename_index :
 			with open("%s.bcf" % (outname),"w") as bcfout:
 				bcfout.writelines(mpileup.communicate()[0])
 
-			bed = subprocess.Popen("bedtools genomecov -ibam %s.bam -g %s.fai | sort" % (outname, args.ref), shell=True, stdout=subprocess.PIPE)
+			bed = subprocess.Popen("bedtools genomecov -ibam %s.bam -g %s.fai" % (outname, args.ref), shell=True, stdout=subprocess.PIPE)
 			
 			with open("%s.tsv" % (outname),"w") as tsvout:
 				tsvout.writelines(bed.communicate()[0])
 			
-			bed = subprocess.Popen("bedtools genomecov -bg -ibam %s.bam -g %s.fai | sort" % (outname, args.ref), shell=True, stdout=subprocess.PIPE)
+			bed = subprocess.Popen("bedtools genomecov -bg -ibam %s.bam -g %s.fai" % (outname, args.ref), shell=True, stdout=subprocess.PIPE)
 
 			with open("%s.bed" % (outname),"w") as bedout:
 				bedout.writelines(bed.communicate()[0])
