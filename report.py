@@ -34,5 +34,3 @@ with open("fold_merged.txt","w") as outfile:
 	outfile.write("organism\t%s\n" % "\t".join(xreport.values()[0].keys()))
 	for organism in xreport:
 			outfile.write("%s\t%s\n" %(organism, '\t'.join([str(xreport[organism][x]) for x in xreport[organism]])))
-
-			#TODO add save xreport

@@ -3,16 +3,8 @@ import argparse
 import pandas as pd
 import numpy as np
 
-parser = argparse.ArgumentParser()
-
-parser.add_argument("inputBED", help="BED to be mapped")
-parser.add_argument("contigGenomeCSV", help="Map contig-genome")
-
-args = parser.parse_args()
-
-if args.inputBED and args.contigGenomeCSV:
-	
-	genomeMap = pd.read_csv(args.contigGenomeCSV, sep=';', names=['id','org','len'])
+def bedmap(inputBED, contigGenome):
+	genomeMap = pd.read_csv(contigGenome, sep=';', names=['id','org','len'])
 	#genomeMap=genomeMap.drop_duplicates('id')
 	#genomeMap.to_csv('/tmp/pangenome.csv', sep=';', header=False, index=False)
 	genomeMap.id = genomeMap.id.apply(lambda x: x.split("|")[1] if "|" in x else x)
@@ -23,7 +15,7 @@ if args.inputBED and args.contigGenomeCSV:
 	
 	# contigs = pd.merge(tsv, genomeMap, how='inner', on='id').groupby(['org','cov']).agg({'base':np.sum})
 
-	bed = pd.read_csv(args.inputBED, sep='\t', names=['id', 'start', 'end', 'depthCoverage'])
+	bed = pd.read_csv(inputBED, sep='\t', names=['id', 'start', 'end', 'depthCoverage'])
 	bed.id = bed.id.apply(lambda x: x.split("|")[1] if "|" in x else x)
 	bed = pd.merge(bed,genomeMap, how='inner', on='id')[['org','start','end','depthCoverage']]
 	meta = pd.DataFrame()
@@ -36,6 +28,12 @@ if args.inputBED and args.contigGenomeCSV:
 
 	out=pd.merge(glength, meta)
 	out['%']=out.baseCovered/out.len
-	out['fold']=(out.depthCoverage*out.baseCovered)/out.len
-
-	out.to_csv(args.inputBED.replace(".bed","_mapped.bed"), sep='\t', index=False, float_format='%1.4f')
+	out['fold']=out.depthCoverage/out.len
+	out.to_csv(inputBED.replace(".bed","_mapped.bed"), sep='\t', index=False, float_format='%1.4f')
+	
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser()
+	parser.add_argument("inputBED", help="BED to be mapped", required=True)
+	parser.add_argument("contigGenomeCSV", help="Map contig-genome", required=True)
+	args = parser.parse_args()
+	bedmap(args.inputBED, args.contigGenomeCSV)

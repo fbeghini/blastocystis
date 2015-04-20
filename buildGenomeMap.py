@@ -12,7 +12,7 @@ parser.add_argument("ssumap")
 
 args = parser.parse_args()
 
-Entrez.email	=	"fbeghini (at) live (dot) com"
+Entrez.email	=	"jhjhjhjhj@gmail.com"#"fbeghini (at) live (dot) com"
 retmax		=	1000
 
 # Genes: Build index with faidx and associate id -> organism
@@ -53,7 +53,7 @@ if args.dataset and args.output:
 						print g
 						oname = g.split('/')[-1].split('.')[0]
 						for seq in SeqIO.parse(handle, "fasta"):
-							tsv.write( "%s;frag_%s;%i\n" % (seq.id, oname, len(seq.seq) ))
+							tsv.write( "%s;genes_%s_%s;%i\n" % (seq.id, oname, seq.id, len(seq.seq) ))
 					elif 'rRNA' in path:
 						print g
 						for seq in SeqIO.parse(handle, "fasta"):
@@ -90,7 +90,7 @@ if args.dataset and args.output:
 						for r in result:
 							seqids = r["GBSeq_other-seqids"]
 							seqids.reverse()
-							tsv.write( "%s;genes_%s;%s\n" % ("|".join(seqids), r["GBSeq_source"], r["GBSeq_length"]))
+							tsv.write( "%s;genes_%s_%s;%s\n" % ("|".join(seqids), r["GBSeq_source"], "|".join(seqids), r["GBSeq_length"]))
 						# except:
 						# 	print sys.exc_info()
 # NCBI 
