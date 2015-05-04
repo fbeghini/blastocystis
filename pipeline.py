@@ -75,7 +75,6 @@ try:
 		bam = subprocess.Popen(com, shell=True, stdout=_bam)
 		if(args.input_type=='U'):
 			bam.stdin = sys.stdin
-		#ADD EXCEPTION
 		bam.communicate()
 		bt2ret = bam.returncode
 		if bt2ret!=0: raise BaseException
@@ -120,4 +119,4 @@ bed = subprocess.Popen("bedtools genomecov -bg -ibam %s.bam -g %s.fai" % (outnam
 with open("%s.bed" % (outname),"w") as bedout:
 	bedout.writelines(bed.communicate()[0])
 
-bedmap("%s.bed", args.genomeMap)
+map_tsv.bedmap("%s.bed" % outname, args.genomeMap)

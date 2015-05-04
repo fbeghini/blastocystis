@@ -33,7 +33,7 @@ def bedmap(inputBED, contigGenome):
 	
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
-	parser.add_argument("inputBED", help="BED to be mapped", required=True)
-	parser.add_argument("contigGenomeCSV", help="Map contig-genome", required=True)
+	parser.add_argument("inputBED", help="BED to be mapped")
+	parser.add_argument("contigGenomeCSV", help="Map contig-genome")
 	args = parser.parse_args()
 	bedmap(args.inputBED, args.contigGenomeCSV)
