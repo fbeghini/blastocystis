@@ -13,7 +13,7 @@ parser.add_argument("--repophlan_map")
 
 args = parser.parse_args()
 
-Entrez.email	=	"asdasdasd@gmail.com"#"fbeghini (at) live (dot) com"
+Entrez.email	=	"matanula@gmail.com"#"fbeghini (at) live (dot) com"
 retmax		=	1000
 
 # Genes: Build index with faidx and associate id -> organism
@@ -48,7 +48,6 @@ if args.dataset and args.output:
 				org = row.split('\t')[18]
 				repophlan[id] = org
 
-	# cursor.execute("CREATE TABLE IF NOT EXISTS pangenomeMap (id varchar(255), organism VARCHAR(255), PRIMARY KEY(id))")
 	if os.path.isdir(args.dataset):
 		with open(args.output,"w") as tsv:
 			for(path, dirs, files) in os.walk(args.dataset):
@@ -110,7 +109,11 @@ if args.dataset and args.output:
 					elif 'genomes' in path:
 						print g
 						for seq in SeqIO.parse(handle, "fasta"):
-							ids.append(seq.id.split("|")[1])
+							try:
+								ids.append(seq.id.split("|")[1])
+							except:
+								continue
+						ids = list(set(ids))
 						query_len = len(ids)
 						print "Len of query is %s" % query_len
 
@@ -124,7 +127,7 @@ if args.dataset and args.output:
 								query_key = postquery["QueryKey"]
 								webenv = postquery["WebEnv"]
 								handle = Entrez.efetch(db="nucleotide", retmode="xml", query_key=query_key, webenv=webenv)
-								result.append(Entrez.read(handle, validate=False))
+								result.extend(Entrez.read(handle, validate=False))
 								handle.close()
 							
 							print "Len of result is %s" % len(result)

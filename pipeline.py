@@ -1,8 +1,10 @@
 #! /usr/bin/env python
 
-import os, argparse, sys, subprocess, tarfile, fastq_len_filter, StringIO, map_tsv
+import os, argparse, sys, subprocess, tarfile, fastq_len_filter, StringIO, map_bed
 from Bio import SeqIO
 from tempfile import NamedTemporaryFile
+
+bowtie2_path = "/CIBIO/sharedCM/projects/mycobacteria/bowtie2-2.2.5/"
 
 def clean_files(input_type, tempdir, mgname):
 	if input_type=="SRA":
@@ -72,14 +74,14 @@ elif(args.input_type == 'SRA'):
 try:
 	with NamedTemporaryFile(delete=True, dir=tempdir) as _bam:
 		print "Aligning %s..." %mg
-		bam = subprocess.Popen(com, shell=True, stdout=_bam)
+		bam = subprocess.Popen( bowtie2_path+com, shell=True, stdout=_bam)
 		if(args.input_type=='U'):
 			bam.stdin = sys.stdin
 		bam.communicate()
-		bt2ret = bam.returncode
-		if bt2ret!=0: raise BaseException
-		sort =subprocess.Popen("samtools sort - %s -@ 4 -m 6G" % (outname), shell=True, stdin=_bam)
+		# bt2ret = bam.returncode
 		print "Sorting %s ..." %mg
+		# if bt2ret!=0: raise BaseException
+		sort =subprocess.Popen("samtools sort - %s -@ 4 -m 6G" % (outname), shell=True, stdin=_bam)
 		sort.communicate()
 except:
 	if args.input_type=="SRA":
@@ -101,8 +103,11 @@ if args.input_type=="FR":
 	forward.close()
 	reverse.close()
 
-index = subprocess.Popen("samtools index %s.bam" % (outname), shell=True)
-index.wait()
+try:
+	index = subprocess.Popen("samtools index %s.bam" % (outname), shell=True)
+	index.wait()
+except:
+	raise BaseException("Sorting of %s has failed" % mg)
 
 mpileup = subprocess.Popen("samtools mpileup -uf %s %s.bam | bcftools view -bvcg -" % (args.ref, outname), shell=True, stdout=subprocess.PIPE)
 
@@ -119,4 +124,4 @@ bed = subprocess.Popen("bedtools genomecov -bg -ibam %s.bam -g %s.fai" % (outnam
 with open("%s.bed" % (outname),"w") as bedout:
 	bedout.writelines(bed.communicate()[0])
 
-map_tsv.bedmap("%s.bed" % outname, args.genomeMap)
+map_bed.bedmap("%s.bed" % outname, args.genomeMap)

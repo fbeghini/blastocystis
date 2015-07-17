@@ -1,13 +1,13 @@
 #!/usr/bin/env python
-import argparse
+import argparse, os
 import pandas as pd
 import numpy as np
 
 def bedmap(inputBED, contigGenome):
 	genomeMap = pd.read_csv(contigGenome, sep=';', names=['id','org','len'])
-	#genomeMap=genomeMap.drop_duplicates('id')
-	#genomeMap.to_csv('/tmp/pangenome.csv', sep=';', header=False, index=False)
 	genomeMap.id = genomeMap.id.apply(lambda x: x.split("|")[1] if "|" in x else x)
+	genomeMap=genomeMap.drop_duplicates('id')
+	#genomeMap.to_csv('/tmp/pangenome.csv', sep=';', header=False, index=False)
 	
 	# tsv = pd.read_csv(args.inputTSV, sep=';', names=['id','org','len'])
 	# tsv = tsv[tsv['id']!='genome']
@@ -17,18 +17,33 @@ def bedmap(inputBED, contigGenome):
 
 	bed = pd.read_csv(inputBED, sep='\t', names=['id', 'start', 'end', 'depthCoverage'])
 	bed.id = bed.id.apply(lambda x: x.split("|")[1] if "|" in x else x)
-	bed = pd.merge(bed,genomeMap, how='inner', on='id')[['org','start','end','depthCoverage']]
+	bed.start = bed.start.astype(np.int64)
+	bed.end = bed.end.astype(np.int64)
+	bed.depthCoverage = bed.depthCoverage.astype(np.int64)
 	meta = pd.DataFrame()
 
-	for id, ds in bed.groupby('org'):
+	for id, ds in bed.groupby('id'):
 		ds['baseCovered'] = ds['end']-ds['start']
-		x = ds[['baseCovered','depthCoverage']].sum()
-		meta = meta.append({ 'org' : id, 'baseCovered' : x['baseCovered'], 'depthCoverage' : x['depthCoverage'] },ignore_index=True)
+		try:
+			ds['breadthCoverage']=(ds['baseCovered']*ds['depthCoverage'])#/float(genomeMap[genomeMap.id==id].len)
+		except:
+			print inputBED, id
+		meta = meta.append({'id':id, 'baseCovered' : np.sum(ds.baseCovered), 'breadthCoverage' : np.sum(ds.breadthCoverage), 'totalReads' : np.sum(ds.depthCoverage) },ignore_index=True)	
+
+	try:
+		meta = pd.merge(meta,genomeMap)[['org','totalReads','baseCovered','breadthCoverage']]
+	except:
+		print inputBED
+		raise BaseException() 
+		
+	meta=meta.groupby('org').agg({'totalReads':np.sum, 'baseCovered':np.sum,'breadthCoverage':np.sum}).reset_index() #dividi
+	meta.baseCovered=meta.baseCovered.astype(np.int64)
+	meta.totalReads=meta.totalReads.astype(np.int64)
 	glength = genomeMap.groupby('org', as_index=False).agg({'len':np.sum})
 
 	out=pd.merge(glength, meta)
+	out['breadthCoverage']=out.breadthCoverage/out.len
 	out['%']=out.baseCovered/out.len
-	out['fold']=out.depthCoverage/out.len
 	out.to_csv(inputBED.replace(".bed","_mapped.bed"), sep='\t', index=False, float_format='%1.4f')
 	
 if __name__ == '__main__':
@@ -36,4 +51,5 @@ if __name__ == '__main__':
 	parser.add_argument("inputBED", help="BED to be mapped")
 	parser.add_argument("contigGenomeCSV", help="Map contig-genome")
 	args = parser.parse_args()
-	bedmap(args.inputBED, args.contigGenomeCSV)
+	if os.stat(args.inputBED).st_size > 0:
+		bedmap(args.inputBED, args.contigGenomeCSV)
