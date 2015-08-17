@@ -114,10 +114,10 @@ mpileup = subprocess.Popen("samtools mpileup -uf %s %s.bam | bcftools view -bvcg
 with open("%s.bcf" % (outname),"w") as bcfout:
 	bcfout.writelines(mpileup.communicate()[0])
 
-bed = subprocess.Popen("bedtools genomecov -ibam %s.bam -g %s.fai" % (outname, args.ref), shell=True, stdout=subprocess.PIPE)
+tsv = subprocess.Popen("bedtools genomecov -ibam %s.bam -g %s.fai" % (outname, args.ref), shell=True, stdout=subprocess.PIPE)
 
 with open("%s.tsv" % (outname),"w") as tsvout:
-	tsvout.writelines(bed.communicate()[0])
+	tsvout.writelines(tsv.communicate()[0])
 
 bed = subprocess.Popen("bedtools genomecov -bg -ibam %s.bam -g %s.fai" % (outname, args.ref), shell=True, stdout=subprocess.PIPE)
 

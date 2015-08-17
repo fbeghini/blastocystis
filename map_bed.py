@@ -25,25 +25,26 @@ def bedmap(inputBED, contigGenome):
 	for id, ds in bed.groupby('id'):
 		ds['baseCovered'] = ds['end']-ds['start']
 		try:
-			ds['breadthCoverage']=(ds['baseCovered']*ds['depthCoverage'])#/float(genomeMap[genomeMap.id==id].len)
+			ds['nucleotidesCovered']=(ds['baseCovered']*ds['depthCoverage'])#/float(genomeMap[genomeMap.id==id].len)
 		except:
 			print inputBED, id
-		meta = meta.append({'id':id, 'baseCovered' : np.sum(ds.baseCovered), 'breadthCoverage' : np.sum(ds.breadthCoverage), 'totalReads' : np.sum(ds.depthCoverage) },ignore_index=True)	
+		meta = meta.append({'id':id, 'baseCovered' : np.sum(ds.baseCovered), 'nucleotidesCovered' : np.sum(ds.nucleotidesCovered), 'totalReads' : np.sum(ds.depthCoverage) },ignore_index=True)	
 
 	try:
-		meta = pd.merge(meta,genomeMap)[['org','totalReads','baseCovered','breadthCoverage']]
+		meta = pd.merge(meta,genomeMap)
 	except:
 		print inputBED
 		raise BaseException() 
 		
-	meta=meta.groupby('org').agg({'totalReads':np.sum, 'baseCovered':np.sum,'breadthCoverage':np.sum}).reset_index() #dividi
+	meta['depthCoverage'] = meta["totalReads"] / meta["len"]
+	meta=meta.groupby('org').agg({'totalReads':np.sum, 'baseCovered':np.sum, 'depthCoverage': np.mean}).reset_index() #dividi
 	meta.baseCovered=meta.baseCovered.astype(np.int64)
 	meta.totalReads=meta.totalReads.astype(np.int64)
 	glength = genomeMap.groupby('org', as_index=False).agg({'len':np.sum})
 
 	out=pd.merge(glength, meta)
-	out['breadthCoverage']=out.breadthCoverage/out.len
-	out['%']=out.baseCovered/out.len
+	out['depthCoverage']=out.totalReads/out.len
+	out['breadthCoverage']=out.baseCovered/out.len
 	out.to_csv(inputBED.replace(".bed","_mapped.bed"), sep='\t', index=False, float_format='%1.4f')
 	
 if __name__ == '__main__':
