@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 from Bio import SeqIO
-import os
-#with open("/banche_dati/sharedCM/projects/mycobacteria/genomes/Giardia.fa","a+") as out:
-#	for record in SeqIO.parse(open("/banche_dati/sharedCM/projects/mycobacteria/genomes/Giardia.fasta","r"),"fasta"):
-#		if "Giardia" in record.description or "giardia" in record.description:
-#			out.write(">%s\n%s" % (record.description, record.seq))
+import os, gzip, argparse
 
 ids = {}
 out = open("/CIBIO/sharedCM/projects/mycobacteria/silva/rRNAseq.fasta","w")
@@ -33,10 +29,12 @@ for id in s_keys:
 for id in l_keys:
 	out.write(">%s\n%s\n" % (lsu[id].description, lsu[id].seq))
 for id in p_keys:
-    out.write(">%s\n%s\n" % (ssp[id].description, ssp[id].seq))
-
-print len(s_keys)
-print len(l_keys)
-print len(p_keys)
+	out.write(">%s\n%s\n" % (ssp[id].description, ssp[id].seq))
 
 out.close()
+
+if __name__ == '__main__':
+	parser = argparse.ArgumentParser()
+	parser.add_argument("inputBED", help="BED to be mapped")
+	parser.add_argument("contigGenomeCSV", help="Map contig-genome")
+	args = parser.parse_args()
