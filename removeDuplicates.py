@@ -14,15 +14,18 @@ def sequence_cleaner(fastafile):
 		ids.add(record.id)
 		yield record
 
+def filter(inputFASTA):
+	records = sequence_cleaner(inputFASTA)
+	count = SeqIO.write(records, inputFASTA.replace(".fasta",".cleared.fasta"), "fasta")
+	return count
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("inputFASTA", metavar="inputFASTA", help="FASTA file to be cleared")
-
 	args = parser.parse_args()
 
 	try:
-		records = sequence_cleaner(args.inputFASTA)
-		count = SeqIO.write(records, args.inputFASTA.replace(".fasta",".cleared.fasta"), "fasta")
+		count = filter(args.inputFASTA)
 		print "Saved %d records" % count
 	except:
 		print sys.exc_info()[0]
