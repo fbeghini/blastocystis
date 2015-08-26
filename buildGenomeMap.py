@@ -63,13 +63,13 @@ if __name__ == '__main__':
 							print g
 							for seq in SeqIO.parse(handle, "fasta"):
 								tsv.write( "%s;refg_%s;%i\n" % (seq.id, " ".join(seq.description.split(" ")[1:3]), len(seq.seq)))
-						elif 'fungi' in path:
+						elif 'repophlan' in path:
 							print g
 							accession = g.split('/')[-1].split('.')[0]
 							org = repophlan[accession]
 							for seq in SeqIO.parse(handle, "fasta"):
 								tsv.write( "%s;refg_%s;%s\n" % (seq.id, org, len(seq.seq)))
-						elif 'genomes' in path:
+						elif 'genus_genes' in path:
 							print g
 							for seq in SeqIO.parse(handle, "fasta"):
 								try:

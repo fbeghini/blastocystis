@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-import os, argparse, gzip, removeDuplicates
+import os, argparse, gzip, removeDuplicates, subprocess
 from Bio import SeqIO
 from bz2 import BZ2File
 from tempfile import NamedTemporaryFile
@@ -20,12 +20,19 @@ def buildDataset(inputFolder, outName):
 					_out.writelines(genome.readlines())
 		SeqIO.convert(_out.name,"fasta",outName,"fasta")
 
+def createBTindex(dataset):
+	os.mkdir(dataset)
+	build = subprocess.Popen("bowtie2-build %s %s/%s" % (dataset, dataset, dataset), shell=True)
+	build.wait()
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
-	parser.add_argument("inputfolder", help="Location of the dataset")
-	parser.add_argument("name", help="Name of the output file")
+	parser.add_argument("inputFolder", help="Location of the dataset")
+	parser.add_argument("outputFASTA", help="Name of the output file")
 
 	args = parser.parse_args()
 	if(os.path.isdir(args.inputfolder)):
-		buildDataset(args.inputfolder, args.name)
-		removeDuplicates.filter(args.name)
+		buildDataset(args.inputfolder, args.outputFASTA)
+		removeDuplicates.filter(args.outputFASTA)
+		createBTindex(args.outputFASTA.replace(".fasta",".cleared.fasta"))
+		print "Bowtie2 index built. Location: ./%s" % (args.outputFASTA)
