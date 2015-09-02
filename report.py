@@ -9,8 +9,9 @@ args = parser.parse_args()
 
 preport = {}
 xreport = {}
+rreport = {}
 inputBED = glob.glob(args.BED)
-print inputBED
+#print inputBED
 for sample in inputBED:
 	with open(sample) as f:
 		reader = csv.reader(f,delimiter='\t')
@@ -19,12 +20,15 @@ for sample in inputBED:
 			organism = row[0]
 			xcov = row[4]
 			pcov = row[5]
+			relab = row[6]
 
-			if organism not in preport and organism not in xreport:
+			if organism not in preport and organism not in xreport and organism not in rreport:
 				preport[organism] = dict((os.path.split(k)[-1],0) for k in inputBED)
 				xreport[organism] = dict((os.path.split(k)[-1],0) for k in inputBED)
+				rreport[organism] = dict((os.path.split(k)[-1],0) for k in inputBED)
 			preport[organism][os.path.split(sample)[-1]] = pcov
 			xreport[organism][os.path.split(sample)[-1]] = xcov
+			rreport[organism][os.path.split(sample)[-1]] = relab
 
 print os.path.split(os.path.abspath(inputBED[0]))[0]
 
@@ -37,3 +41,8 @@ with open("%s/fold_merged.txt" % (os.path.split(inputBED[0])[0]), "w") as outfil
 	outfile.write("organism\t%s\n" % "\t".join(xreport.values()[0].keys()))
 	for organism in xreport:
 			outfile.write("%s\t%s\n" %(organism, '\t'.join([str(xreport[organism][x]) for x in xreport[organism]])))
+
+with open("%s/abundances_merged.txt" % (os.path.split(inputBED[0])[0]), "w") as outfile:
+	outfile.write("organism\t%s\n" % "\t".join(rreport.values()[0].keys()))
+	for organism in rreport:
+			outfile.write("%s\t%s\n" %(organism, '\t'.join([str(rreport[organism][x]) for x in rreport[organism]])))
