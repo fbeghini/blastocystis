@@ -2,6 +2,7 @@
 import argparse, os
 import pandas as pd
 import numpy as np
+import relativeAbundances
 
 def bedmap(inputBED, contigGenome):
 	genomeMap = pd.read_csv(contigGenome, sep=';', names=['id','org','len'])
@@ -46,6 +47,7 @@ def bedmap(inputBED, contigGenome):
 	out['depthCoverage']=out.totalReads/out.len
 	out['breadthCoverage']=out.baseCovered/out.len
 	out.to_csv(inputBED.replace(".bed","_mapped.bed"), sep='\t', index=False, float_format='%1.4f')
+	relativeAbundances.calculateRelativeAbb(inputBED.replace(".bed","_mapped.bed"), contigGenome)
 	
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()

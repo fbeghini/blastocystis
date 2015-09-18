@@ -32,12 +32,12 @@ for sample in inputBED:
 
 print os.path.split(os.path.abspath(inputBED[0]))[0]
 
-with open("%s/perc_merged.txt" % (os.path.split(inputBED[0])[0]), "w") as outfile:
+with open("%s/breadth_merged.txt" % (os.path.split(inputBED[0])[0]), "w") as outfile:
 	outfile.write("organism\t%s\n" % "\t".join(preport.values()[0].keys()))
 	for organism in preport:
 			outfile.write("%s\t%s\n" %(organism, '\t'.join([str(preport[organism][x]) for x in preport[organism]])))
 
-with open("%s/fold_merged.txt" % (os.path.split(inputBED[0])[0]), "w") as outfile:
+with open("%s/depth_merged.txt" % (os.path.split(inputBED[0])[0]), "w") as outfile:
 	outfile.write("organism\t%s\n" % "\t".join(xreport.values()[0].keys()))
 	for organism in xreport:
 			outfile.write("%s\t%s\n" %(organism, '\t'.join([str(xreport[organism][x]) for x in xreport[organism]])))
