@@ -31,7 +31,10 @@ def calculateRelativeAbb(bedfile, contigGenome):
 	bam = bam[bam.org.str.match("ST.$|ST4_WR1")]
 	bam = bam.groupby('org').agg({'reads': np.sum})
 	mappedBED.totalReads = bam.reads.tolist()
-	totalReads=totalReadsMetagenome[totalReadsMetagenome.sample_name==bedfile.split('_')[0]].reads.item()
+	try:
+		totalReads=totalReadsMetagenome.query('sample_name=="'+ bedfile.split('_')[0] + '" & dataset=="Chatelier_gut_obesity"').reads.item()
+	except:
+		print(bedfile)
 	mappedBED["relativeAbundance"] = mappedBED.totalReads / totalReads
 	mappedBED.to_csv(bedfile, sep='\t', index=False)
 
