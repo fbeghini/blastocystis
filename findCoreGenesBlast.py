@@ -20,6 +20,8 @@ def common_seq(gene, genomes):
 		for blast_result in SearchIO.parse("%s.xml" % gene.id, 'blast-xml'):
 			filtered_hits = blast_result.hsp_filter(lambda hsp : hsp.aln_span > LEN_THRESHOLD)
 			filtered_hits = filtered_hits.hsp_filter(lambda hsp : hsp.ident_num/float(hsp.aln_span) > IDEN_THRESHOLD)
+			if(len(filtered_hits)>0):
+				filtered_hits = filtered_hits[0]
 			records.extend(map(lambda HSPFragment : HSPFragment.hit, filtered_hits.fragments))
 	if len(records) >= len(genomes):
 		print "%s is a core gene" % (gene.id)
@@ -48,5 +50,7 @@ if __name__ == '__main__':
 
 	genes = SeqIO.parse(os.path.splitext(input_fna)[0]+"_genes.fna", "fasta")
 
-	pool = mp.Pool(processes=10)
+	pool = mp.Pool(processes = 30)
 	processes = [pool.apply(common_seq, args=(gene.upper(), genomes)) for gene in genes]
+	pool.close()
+	pool.terminate()
