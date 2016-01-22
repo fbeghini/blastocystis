@@ -4,6 +4,9 @@ from Bio.Blast.Applications import NcbiblastnCommandline
 import os, argparse
 import multiprocessing as mp
 
+LEN_THRESHOLD = 500
+IDEN_THRESHOLD = 0.7
+
 def common_seq(gene, genomes):
 	query = "extractedgenes/%s.fasta" % (gene.id)
 	if not os.path.exists("extractedgenes"):
@@ -21,7 +24,7 @@ def common_seq(gene, genomes):
 			filtered_hits = blast_result.hsp_filter(lambda hsp : hsp.aln_span > LEN_THRESHOLD)
 			filtered_hits = filtered_hits.hsp_filter(lambda hsp : hsp.ident_num/float(hsp.aln_span) > IDEN_THRESHOLD)
 			if(len(filtered_hits)>0):
-				filtered_hits = filtered_hits[0]
+				filtered_hits = filtered_hits[0][0]
 			records.extend(map(lambda HSPFragment : HSPFragment.hit, filtered_hits.fragments))
 	if len(records) >= len(genomes):
 		print "%s is a core gene" % (gene.id)
@@ -33,8 +36,6 @@ def common_seq(gene, genomes):
 	os.remove("%s.xml" % gene.id)
 
 if __name__ == '__main__':
-	LEN_THRESHOLD = 500
-	IDEN_THRESHOLD = 0.7
 
 	input_gff = '/CIBIO/sharedCM/projects/blastocystis/dataset/Blastocystis/ST4/GCF_000743755.1_ASM74375v1_genomic.gff'
 	input_fna = '/CIBIO/sharedCM/projects/blastocystis/dataset/Blastocystis/ST4/GCF_000743755.1_ASM74375v1_genomic.fna'
@@ -50,7 +51,7 @@ if __name__ == '__main__':
 
 	genes = SeqIO.parse(os.path.splitext(input_fna)[0]+"_genes.fna", "fasta")
 
-	pool = mp.Pool(processes = 30)
+	pool = mp.Pool(processes = 50)
 	processes = [pool.apply(common_seq, args=(gene.upper(), genomes)) for gene in genes]
 	pool.close()
 	pool.terminate()
