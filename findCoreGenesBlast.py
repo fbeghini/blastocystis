@@ -1,11 +1,15 @@
-import Bio
-from Bio import SearchIO, SeqIO
+import Bio, os, argparse, glob
+from Bio import SearchIO, SeqIO, AlignIO
+from StringIO import StringIO
 from Bio.Blast.Applications import NcbiblastnCommandline
-import os, argparse
+from Bio.Align.Applications import MuscleCommandline
+from Bio.Phylo.Applications import RaxmlCommandline
 import multiprocessing as mp
 
 LEN_THRESHOLD = 500
 IDEN_THRESHOLD = 0.7
+muscle_exe = "/scratch/sharedCM/users/beghini/muscle3.8.1551"
+raxml_exe = "/scratch/sharedCM/users/beghini/raxmlHPC-PTHREADS-SSE3"
 
 def common_seq(gene, genomes):
 	query = "extractedgenes/%s.fasta" % (gene.id)
@@ -20,20 +24,50 @@ def common_seq(gene, genomes):
 		print "\t%s..." % (genome)
 		blastn_cline = NcbiblastnCommandline(query=query, db="blastdb/%s" % genome.split('.')[0], evalue=0.001, outfmt= 5, word_size = 9, out= "%s.xml" % gene.id)# % genome.split('.')[0])
 		stdout, stderr = blastn_cline()
-		for blast_result in SearchIO.parse("%s.xml" % gene.id, 'blast-xml'):
-			filtered_hits = blast_result.hsp_filter(lambda hsp : hsp.aln_span > LEN_THRESHOLD)
-			filtered_hits = filtered_hits.hsp_filter(lambda hsp : hsp.ident_num/float(hsp.aln_span) > IDEN_THRESHOLD)
-			if(len(filtered_hits)>0):
-				filtered_hits = filtered_hits[0][0]
-			records.extend(map(lambda HSPFragment : HSPFragment.hit, filtered_hits.fragments))
+		if len(stderr) == 0:										# handle this
+			for blast_result in SearchIO.parse("%s.xml" % gene.id, 'blast-xml'):
+				filtered_hits = blast_result.hsp_filter(lambda hsp : hsp.aln_span > LEN_THRESHOLD)
+				filtered_hits = filtered_hits.hsp_filter(lambda hsp : hsp.ident_num/float(hsp.aln_span) > IDEN_THRESHOLD)
+				if(len(filtered_hits)>0):
+					filtered_hits = filtered_hits[0][0]
+					filtered_hits.hit.id = genome.split('.')[0]
+					filtered_hits.hit.name = filtered_hits.hit.description = ""
+				records.extend(map(lambda HSPFragment : HSPFragment.hit, filtered_hits.fragments))
 	if len(records) >= len(genomes):
 		print "%s is a core gene" % (gene.id)
 		for record in records:
 			record.seq = Bio.Seq.Seq(str(record.seq).replace('-','N'), Bio.Alphabet.DNAAlphabet)
-		SeqIO.write(records, 'coregenes/%s.fasta' % (gene.id),'fasta')
+		SeqIO.write(records, 'coregenes/%s.fasta' % (gene.id.replace(":","_")),'fasta')
 	else:
 		print "%s is not a core gene" % (gene.id)
 	os.remove("%s.xml" % gene.id)
+
+def muscle_aln():
+	# if not os.path.exists("musclealn"):
+		# os.mkdir("musclealn")
+	mergedaln = {}
+	for gene in glob.glob("coregenes/*.fasta"):
+		muscle_cline = MuscleCommandline(muscle_exe, input=gene) 
+		stdout, stderr  = muscle_cline()
+		alignment = AlignIO.read(StringIO(stdout), 'fasta')
+		for seq in alignment:
+			if seq.id not in mergedaln:
+				mergedaln[seq.id] = seq
+			else:
+				mergedaln[seq.id] += seq
+	SeqIO.write(mergedaln.values(), "muscleout.fasta", "fasta")
+
+def generate_phylo():
+	try:
+		#best_likelihood
+		raxml_cline = RaxmlCommandline(sequences="muscleout.fasta", model="GTRGAMMA", threads=20, cmd=raxml_exe, name="T1", parsimony_seed=12345, num_replicates=5)
+		stdout, stderr  = raxml_cline()
+		#bootstrap search
+		raxml_cline = RaxmlCommandline(sequences="muscleout.fasta", model="GTRGAMMA", threads=20, cmd=raxml_exe, name="T2", parsimony_seed=12345, num_replicates=5, bootstrap_seed=12345)
+		stdout, stderr  = raxml_cline()
+		#draw bipartition
+		raxml_cline = RaxmlCommandline(sequences="muscleout.fasta", model="GTRCAT", threads=20, cmd=raxml_exe, name="T3.nwk", algorithm="b", starting_tree="RAxML_bestTree.T1", bipartition_filename="RAxML_bootstrap.T2")
+		stdout, stderr  = raxml_cline()
 
 if __name__ == '__main__':
 
@@ -55,3 +89,6 @@ if __name__ == '__main__':
 	processes = [pool.apply(common_seq, args=(gene.upper(), genomes)) for gene in genes]
 	pool.close()
 	pool.terminate()
+
+	muscle_aln()
+	generate_phylo()
