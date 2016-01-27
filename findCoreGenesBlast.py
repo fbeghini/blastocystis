@@ -70,10 +70,17 @@ def generate_phylo():
 		stdout, stderr  = raxml_cline()
 
 if __name__ == '__main__':
+	parser = argparse.ArgumentParser()
 
-	input_gff = '/CIBIO/sharedCM/projects/blastocystis/dataset/Blastocystis/ST4/GCF_000743755.1_ASM74375v1_genomic.gff'
-	input_fna = '/CIBIO/sharedCM/projects/blastocystis/dataset/Blastocystis/ST4/GCF_000743755.1_ASM74375v1_genomic.fna'
-	genomes = ["GCF_000151665.1_ASM15166v1_genomic.fasta", "GCF_000743755.1_ASM74375v1_genomic.fasta", "ST2_JZRJ01.1.fasta", "ST3_JZRK01.1.fasta", "ST6_JZRM01.1.fasta", "ST8_JZRN01.1.fasta", "ST9_JZRO01.1.fasta"]
+	parser.add_argument("input_gff")
+	parser.add_argument("input_fna")
+	parser.add_argument("genomes")
+	args = parser.parse_args()
+
+	input_gff = args.input_gff #'/CIBIO/sharedCM/projects/blastocystis/dataset/Blastocystis/ST4/GCF_000743755.1_ASM74375v1_genomic.gff'
+	input_fna = args.input_fna #'/CIBIO/sharedCM/projects/blastocystis/dataset/Blastocystis/ST4/GCF_000743755.1_ASM74375v1_genomic.fna'
+	genomes = args.genomes.split(',') #["GCF_000151665.1_ASM15166v1_genomic.fasta", "GCF_000743755.1_ASM74375v1_genomic.fasta", "ST2_JZRJ01.1.fasta", "ST3_JZRK01.1.fasta", "ST6_JZRM01.1.fasta", "ST8_JZRN01.1.fasta", "ST9_JZRO01.1.fasta"]
+	
 	for genome in genomes:
 		if not os.path.exists("blastdb"):
 			os.mkdir("blastdb")
