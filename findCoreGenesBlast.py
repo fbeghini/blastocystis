@@ -75,9 +75,9 @@ def generate_phylo():
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 
-	parser.add_argument("input_gff")
-	parser.add_argument("input_fna")
-	parser.add_argument("genomes")
+	parser.add_argument("-input_gff")
+	parser.add_argument("-input_fna")
+	parser.add_argument("-genomes")
 	args = parser.parse_args()
 
 	input_gff = args.input_gff #'/CIBIO/sharedCM/projects/blastocystis/dataset/Blastocystis/ST4/GCF_000743755.1_ASM74375v1_genomic.gff'
