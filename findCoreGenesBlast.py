@@ -58,6 +58,7 @@ def muscle_aln():
 	SeqIO.write(mergedaln.values(), "muscleout.fasta", "fasta")
 
 def generate_phylo():
+	os.system("google-chrome-stable http://bit.ly/1nxxSEW")
 	try:
 		#best_likelihood
 		raxml_cline = RaxmlCommandline(sequences="muscleout.fasta", model="GTRGAMMA", threads=20, cmd=raxml_exe, name="T1", parsimony_seed=12345, num_replicates=5)
@@ -68,6 +69,8 @@ def generate_phylo():
 		#draw bipartition
 		raxml_cline = RaxmlCommandline(sequences="muscleout.fasta", model="GTRCAT", threads=20, cmd=raxml_exe, name="T3.nwk", algorithm="b", starting_tree="RAxML_bestTree.T1", bipartition_filename="RAxML_bootstrap.T2")
 		stdout, stderr  = raxml_cline()
+	except :
+		None
 
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
