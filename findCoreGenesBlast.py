@@ -46,6 +46,7 @@ def muscle_aln():
 	# if not os.path.exists("musclealn"):
 		# os.mkdir("musclealn")
 	mergedaln = {}
+	print "Running muscle on extracted sequences..."
 	for gene in glob.glob("coregenes/*.fasta"):
 		muscle_cline = MuscleCommandline(muscle_exe, input=gene) 
 		stdout, stderr  = muscle_cline()
@@ -58,7 +59,8 @@ def muscle_aln():
 	SeqIO.write(mergedaln.values(), "muscleout.fasta", "fasta")
 
 def generate_phylo():
-	os.system("google-chrome-stable http://bit.ly/1nxxSEW")
+	#os.system("google-chrome-stable http://bit.ly/1nxxSEW")
+	print "Generating phylogenetic tree using the multiple algnment output using RAxML..."
 	try:
 		#best_likelihood
 		raxml_cline = RaxmlCommandline(sequences="muscleout.fasta", model="GTRGAMMA", threads=20, cmd=raxml_exe, name="T1", parsimony_seed=12345, num_replicates=5)
@@ -90,7 +92,7 @@ if __name__ == '__main__':
 		if not os.path.isfile("blastdb/"+genome.split('.')[0]+".nhr"):
 			os.system("makeblastdb -in %s -out blastdb/%s -dbtype nucl" % (genome, genome.split('.')[0]))
 
-	os.system('grep -Pv "\tmRNA\t|\tCDS\t|\texon\t|\tregion\t" %s > %s' % (input_gff, os.path.splitext(input_gff)[0]+"_genes.gff" ))
+	os.system('grep -Pv "\tmRNA\t|\tCDS\t|\texon\t|\tregion\t" %s > %s' % (input_gff, os.path.splitext(input_gff)[0]+"_genes.gff" ))	
 	os.system("bedtools getfasta -fi %s -bed %s -fo %s -split"  % (input_fna, os.path.splitext(input_gff)[0]+"_genes.gff", os.path.splitext(input_fna)[0]+"_genes.fna"))
 
 	genes = SeqIO.parse(os.path.splitext(input_fna)[0]+"_genes.fna", "fasta")
@@ -102,3 +104,4 @@ if __name__ == '__main__':
 
 	muscle_aln()
 	generate_phylo()
+	print "Done. The final phylogenetic tree is RAxML_bipartitionsBranchLabels.T3.nwk"
