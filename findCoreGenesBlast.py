@@ -4,12 +4,16 @@ from StringIO import StringIO
 from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio.Align.Applications import MuscleCommandline
 from Bio.Phylo.Applications import RaxmlCommandline
+from collections import defaultdict
 import multiprocessing as mp
+import pickle
 
 LEN_THRESHOLD = 500
 IDEN_THRESHOLD = 0.7
 muscle_exe = "/scratch/sharedCM/users/beghini/muscle3.8.1551"
 raxml_exe = "/scratch/sharedCM/users/beghini/raxmlHPC-PTHREADS-SSE3"
+
+report = defaultdict(lambda: defaultdict(dict))
 
 def common_seq(gene, genomes):
 	query = "extractedgenes/%s.fasta" % (gene.id)
@@ -17,15 +21,17 @@ def common_seq(gene, genomes):
 		os.mkdir("extractedgenes")
 	if not os.path.exists("coregenes"):
 		os.mkdir("coregenes")
+	if not os.path.exists("blastout"):
+		os.mkdir("blastout")
 	SeqIO.write(gene, query, "fasta")
 	records = []
 	print "BLASTing %s on " % (gene.id)
 	for genome in genomes:
 		print "\t%s..." % (genome)
-		blastn_cline = NcbiblastnCommandline(query=query, db="blastdb/%s" % genome.split('.')[0], evalue=0.001, outfmt= 5, word_size = 9, out= "%s.xml" % gene.id)# % genome.split('.')[0])
+		blastn_cline = NcbiblastnCommandline(query=query, db="blastdb/%s" % genome.split('.')[0], evalue=0.001, outfmt= 5, word_size = 9, out= "blastout/%s.xml" % gene.id)# % genome.split('.')[0])
 		stdout, stderr = blastn_cline()
 		if len(stderr) == 0:										# handle this
-			for blast_result in SearchIO.parse("%s.xml" % gene.id, 'blast-xml'):
+			for blast_result in SearchIO.parse("blastout/%s.xml" % gene.id, 'blast-xml'):
 				filtered_hits = blast_result.hsp_filter(lambda hsp : hsp.aln_span > LEN_THRESHOLD)
 				filtered_hits = filtered_hits.hsp_filter(lambda hsp : hsp.ident_num/float(hsp.aln_span) > IDEN_THRESHOLD)
 				if(len(filtered_hits)>0):
@@ -33,14 +39,17 @@ def common_seq(gene, genomes):
 					filtered_hits.hit.id = genome.split('.')[0]
 					filtered_hits.hit.name = filtered_hits.hit.description = ""
 				records.extend(map(lambda HSPFragment : HSPFragment.hit, filtered_hits.fragments))
+	for record in records:
+		report[gene.id][record.id] = 1
+
 	if len(records) >= len(genomes):
 		print "%s is a core gene" % (gene.id)
 		for record in records:
 			record.seq = Bio.Seq.Seq(str(record.seq).replace('-','N'), Bio.Alphabet.DNAAlphabet)
 		SeqIO.write(records, 'coregenes/%s.fasta' % (gene.id.replace(":","_")),'fasta')
+
 	else:
 		print "%s is not a core gene" % (gene.id)
-	os.remove("%s.xml" % gene.id)
 
 def muscle_aln():
 	# if not os.path.exists("musclealn"):
@@ -101,7 +110,7 @@ if __name__ == '__main__':
 	processes = [pool.apply(common_seq, args=(gene.upper(), genomes)) for gene in genes]
 	pool.close()
 	pool.terminate()
-
+	pickle.dump(report,"report.pkl")
 	muscle_aln()
 	generate_phylo()
 	print "Done. The final phylogenetic tree is RAxML_bipartitionsBranchLabels.T3.nwk"
