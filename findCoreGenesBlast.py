@@ -5,6 +5,7 @@ from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio.Align.Applications import MuscleCommandline
 from Bio.Phylo.Applications import RaxmlCommandline
 from collections import defaultdict
+from functools import partial
 import multiprocessing as mp
 import pickle
 
@@ -12,8 +13,6 @@ LEN_THRESHOLD = 500
 IDEN_THRESHOLD = 0.7
 muscle_exe = "/scratch/sharedCM/users/beghini/muscle3.8.1551"
 raxml_exe = "/scratch/sharedCM/users/beghini/raxmlHPC-PTHREADS-SSE3"
-
-report = defaultdict(lambda: defaultdict(dict))
 
 def common_seq(gene, genomes):
 	query = "extractedgenes/%s.fasta" % (gene.id)
@@ -23,15 +22,17 @@ def common_seq(gene, genomes):
 		os.mkdir("coregenes")
 	if not os.path.exists("blastout"):
 		os.mkdir("blastout")
-	SeqIO.write(gene, query, "fasta")
+	SeqIO.write(gene.upper(), query, "fasta")
 	records = []
+	report = defaultdict(lambda: defaultdict(dict))
 	print "BLASTing %s on " % (gene.id)
+	#print genomes
 	for genome in genomes:
-		print "\t%s..." % (genome)
-		blastn_cline = NcbiblastnCommandline(query=query, db="blastdb/%s" % genome.split('.')[0], evalue=0.001, outfmt= 5, word_size = 9, out= "blastout/%s.xml" % gene.id)# % genome.split('.')[0])
+	#	print "\t%s..." % (genome)
+		blastn_cline = NcbiblastnCommandline(query=query, db="blastdb/%s" % genome.split('.')[0], evalue=0.001, outfmt= 5, word_size = 9, out= "blastout/%s_%s.xml" % (genome, gene.id))# % genome.split('.')[0])
 		stdout, stderr = blastn_cline()
 		if len(stderr) == 0:										# handle this
-			for blast_result in SearchIO.parse("blastout/%s.xml" % gene.id, 'blast-xml'):
+			for blast_result in SearchIO.parse("blastout/%s_%s.xml" % (genome, gene.id), 'blast-xml'):
 				filtered_hits = blast_result.hsp_filter(lambda hsp : hsp.aln_span > LEN_THRESHOLD)
 				filtered_hits = filtered_hits.hsp_filter(lambda hsp : hsp.ident_num/float(hsp.aln_span) > IDEN_THRESHOLD)
 				if(len(filtered_hits)>0):
@@ -43,13 +44,15 @@ def common_seq(gene, genomes):
 		report[gene.id][record.id] = 1
 
 	if len(records) >= len(genomes):
-		print "%s is a core gene" % (gene.id)
+	#	print "%s is a core gene" % (gene.id)
 		for record in records:
 			record.seq = Bio.Seq.Seq(str(record.seq).replace('-','N'), Bio.Alphabet.DNAAlphabet)
 		SeqIO.write(records, 'coregenes/%s.fasta' % (gene.id.replace(":","_")),'fasta')
 
 	else:
-		print "%s is not a core gene" % (gene.id)
+		None
+	#	print "%s is not a core gene" % (gene.id)
+	return report
 
 def muscle_aln():
 	# if not os.path.exists("musclealn"):
@@ -107,10 +110,18 @@ if __name__ == '__main__':
 	genes = SeqIO.parse(os.path.splitext(input_fna)[0]+"_genes.fna", "fasta")
 
 	pool = mp.Pool(processes = 50)
-	processes = [pool.apply(common_seq, args=(gene.upper(), genomes)) for gene in genes]
+	
+	try:
+		processes = [pool.apply_async(common_seq, args=(gene.upper(),genomes)) for gene in genes]
+		pool.close()
+		pool.join()
+		output = [p.get() for p in processes]
+	except KeyboardInterrupt:
+		pool.terminate()
+		
 	pool.close()
 	pool.terminate()
-	pickle.dump(report,"report.pkl")
+	pickle.dump(processes, open("report.pkl","wb"))
 	muscle_aln()
 	generate_phylo()
 	print "Done. The final phylogenetic tree is RAxML_bipartitionsBranchLabels.T3.nwk"
