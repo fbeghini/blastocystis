@@ -1,57 +1,74 @@
 import Bio, os, argparse, glob
+import pandas as pd
+import multiprocessing as mp
 from Bio import SearchIO, SeqIO, AlignIO
 from StringIO import StringIO
 from Bio.Blast.Applications import NcbiblastnCommandline
 from Bio.Align.Applications import MuscleCommandline
 from Bio.Phylo.Applications import RaxmlCommandline
 from collections import defaultdict
-from functools import partial
-import multiprocessing as mp
-import pickle
 
 LEN_THRESHOLD = 500
 IDEN_THRESHOLD = 0.7
 muscle_exe = "/scratch/sharedCM/users/beghini/muscle3.8.1551"
 raxml_exe = "/scratch/sharedCM/users/beghini/raxmlHPC-PTHREADS-SSE3"
+genomes = []
 
-def common_seq(gene, genomes):
-	query = "extractedgenes/%s.fasta" % (gene.id)
-	if not os.path.exists("extractedgenes"):
-		os.mkdir("extractedgenes")
-	if not os.path.exists("coregenes"):
-		os.mkdir("coregenes")
-	if not os.path.exists("blastout"):
-		os.mkdir("blastout")
-	SeqIO.write(gene.upper(), query, "fasta")
-	records = []
-	report = defaultdict(lambda: defaultdict(dict))
-	print "BLASTing %s on " % (gene.id)
-	#print genomes
-	for genome in genomes:
-	#	print "\t%s..." % (genome)
-		blastn_cline = NcbiblastnCommandline(query=query, db="blastdb/%s" % genome.split('.')[0], evalue=0.001, outfmt= 5, word_size = 9, out= "blastout/%s_%s.xml" % (genome, gene.id))# % genome.split('.')[0])
-		stdout, stderr = blastn_cline()
-		if len(stderr) == 0:										# handle this
+def initt(terminating_):
+	# This places terminating in the global namespace of the worker subprocesses.
+	# This allows the worker function to access `terminating` even though it is
+	# not passed as an argument to the function.
+	global terminating
+	terminating = terminating_
+
+def common_seq(gene):
+	print terminating.is_set()
+	if not terminating.is_set():
+		query = "extractedgenes/%s.fasta" % (gene.id)
+		if not os.path.exists("extractedgenes"):
+			os.mkdir("extractedgenes")
+		if not os.path.exists("coregenes"):
+			os.mkdir("coregenes")
+		if not os.path.exists("blastout"):
+			os.mkdir("blastout")
+		SeqIO.write(gene, query, "fasta")
+		
+		records = []
+		#report = defaultdict(lambda: defaultdict(dict))
+		report = {}
+		_tmp={}
+		# print "BLASTing %s on " % (gene.id)
+		
+		for genome in genomes:
+			genome = os.path.split(genome)[1].split('.')[0]
+			# print "\t%s..." % (genome)
+			if not os.path.exists("blastout/%s_%s.xml" % (genome, gene.id)):
+				blastn_cline = NcbiblastnCommandline(query=query, db="blastdb/%s" % genome, evalue=0.001, outfmt= 5, word_size = 9, out= "blastout/%s_%s.xml" % (genome, gene.id))
+				stdout, stderr = blastn_cline()
 			for blast_result in SearchIO.parse("blastout/%s_%s.xml" % (genome, gene.id), 'blast-xml'):
 				filtered_hits = blast_result.hsp_filter(lambda hsp : hsp.aln_span > LEN_THRESHOLD)
 				filtered_hits = filtered_hits.hsp_filter(lambda hsp : hsp.ident_num/float(hsp.aln_span) > IDEN_THRESHOLD)
 				if(len(filtered_hits)>0):
 					filtered_hits = filtered_hits[0][0]
-					filtered_hits.hit.id = genome.split('.')[0]
+					filtered_hits.hit.id = os.path.split(genome)[1].split('.')[0].split('.')[0]
 					filtered_hits.hit.name = filtered_hits.hit.description = ""
 				records.extend(map(lambda HSPFragment : HSPFragment.hit, filtered_hits.fragments))
-	for record in records:
-		report[gene.id][record.id] = 1
-
-	if len(records) >= len(genomes):
-	#	print "%s is a core gene" % (gene.id)
+			_tmp[genome]=0
 		for record in records:
-			record.seq = Bio.Seq.Seq(str(record.seq).replace('-','N'), Bio.Alphabet.DNAAlphabet)
-		SeqIO.write(records, 'coregenes/%s.fasta' % (gene.id.replace(":","_")),'fasta')
+			_tmp[record.id] = 1
+		report[gene.id]=_tmp
+		print "%i/%i" % (len(records),len(genomes))
+		if len(records) >= len(genomes):
+		#	print "%s is a core gene" % (gene.id)
+			for record in records:
+				record.seq = Bio.Seq.Seq(str(record.seq).replace('-','N'), Bio.Alphabet.DNAAlphabet)
+			SeqIO.write(records, 'coregenes/%s.fasta' % (gene.id.replace(":","_")),'fasta')
 
+		else:
+			None
+		#	print "%s is not a core gene" % (gene.id)
 	else:
-		None
-	#	print "%s is not a core gene" % (gene.id)
+		terminating.set()
 	return report
 
 def muscle_aln():
@@ -101,27 +118,29 @@ if __name__ == '__main__':
 	for genome in genomes:
 		if not os.path.exists("blastdb"):
 			os.mkdir("blastdb")
-		if not os.path.isfile("blastdb/"+genome.split('.')[0]+".nhr"):
-			os.system("makeblastdb -in %s -out blastdb/%s -dbtype nucl" % (genome, genome.split('.')[0]))
+		if not os.path.isfile("blastdb/"+os.path.split(genome)[1].split('.')[0]+".nhr"):
+			os.system("makeblastdb -in %s -out blastdb/%s -dbtype nucl" % (genome, os.path.split(genome)[1].split('.')[0]))
 
 	os.system('grep -Pv "\tmRNA\t|\tCDS\t|\texon\t|\tregion\t" %s > %s' % (input_gff, os.path.splitext(input_gff)[0]+"_genes.gff" ))	
 	os.system("bedtools getfasta -fi %s -bed %s -fo %s -split"  % (input_fna, os.path.splitext(input_gff)[0]+"_genes.gff", os.path.splitext(input_fna)[0]+"_genes.fna"))
 
 	genes = SeqIO.parse(os.path.splitext(input_fna)[0]+"_genes.fna", "fasta")
 
-	pool = mp.Pool(processes = 50)
-	
+	terminating = mp.Event()
+	pool = mp.Pool(initializer = initt, initargs=(terminating, ), processes = 50)
+
+	processes = {}
 	try:
-		processes = [pool.apply_async(common_seq, args=(gene.upper(),genomes)) for gene in genes]
+		for j in pool.map(common_seq, genes):
+			c = processes.update(j)
 		pool.close()
-		pool.join()
-		output = [p.get() for p in processes]
-	except KeyboardInterrupt:
+	except:
 		pool.terminate()
-		
-	pool.close()
-	pool.terminate()
-	pickle.dump(processes, open("report.pkl","wb"))
+		pool.join()	
+	pool.join()
+	
+	table = pd.DataFrame.from_dict(processes).transpose()
+	pd.DataFrame.to_csv(table, 'gene_summary.csv')
 	muscle_aln()
 	generate_phylo()
 	print "Done. The final phylogenetic tree is RAxML_bipartitionsBranchLabels.T3.nwk"
