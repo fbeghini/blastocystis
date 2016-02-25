@@ -22,7 +22,6 @@ def initt(terminating_):
 	terminating = terminating_
 
 def common_seq(gene):
-	print terminating.is_set()
 	if not terminating.is_set():
 		query = "extractedgenes/%s.fasta" % (gene.id)
 		if not os.path.exists("extractedgenes"):
@@ -32,19 +31,20 @@ def common_seq(gene):
 		if not os.path.exists("blastout"):
 			os.mkdir("blastout")
 		SeqIO.write(gene, query, "fasta")
-		
+	
 		records = []
 		#report = defaultdict(lambda: defaultdict(dict))
 		report = {}
 		_tmp={}
-		# print "BLASTing %s on " % (gene.id)
-		
+		#print "BLASTing %s" % (gene.id)
+	
 		for genome in genomes:
 			genome = os.path.split(genome)[1].split('.')[0]
 			# print "\t%s..." % (genome)
 			if not os.path.exists("blastout/%s_%s.xml" % (genome, gene.id)):
 				blastn_cline = NcbiblastnCommandline(query=query, db="blastdb/%s" % genome, evalue=0.001, outfmt= 5, word_size = 9, out= "blastout/%s_%s.xml" % (genome, gene.id))
 				stdout, stderr = blastn_cline()
+			print "blastout/%s_%s.xml" % (genome, gene.id)
 			for blast_result in SearchIO.parse("blastout/%s_%s.xml" % (genome, gene.id), 'blast-xml'):
 				filtered_hits = blast_result.hsp_filter(lambda hsp : hsp.aln_span > LEN_THRESHOLD)
 				filtered_hits = filtered_hits.hsp_filter(lambda hsp : hsp.ident_num/float(hsp.aln_span) > IDEN_THRESHOLD)
@@ -57,16 +57,16 @@ def common_seq(gene):
 		for record in records:
 			_tmp[record.id] = 1
 		report[gene.id]=_tmp
-		print "%i/%i" % (len(records),len(genomes))
+		print "%s: found in %i/%i " % (gene.id, len(records), len(genomes))
 		if len(records) >= len(genomes):
-		#	print "%s is a core gene" % (gene.id)
+			# print "%s is a core gene" % (gene.id)
 			for record in records:
 				record.seq = Bio.Seq.Seq(str(record.seq).replace('-','N'), Bio.Alphabet.DNAAlphabet)
 			SeqIO.write(records, 'coregenes/%s.fasta' % (gene.id.replace(":","_")),'fasta')
 
 		else:
 			None
-		#	print "%s is not a core gene" % (gene.id)
+			# print "%s is not a core gene" % (gene.id)
 	else:
 		terminating.set()
 	return report
@@ -85,20 +85,20 @@ def muscle_aln():
 				mergedaln[seq.id] = seq
 			else:
 				mergedaln[seq.id] += seq
-	SeqIO.write(mergedaln.values(), "muscleout.fasta", "fasta")
+	SeqIO.write(mergedaln.values(), "muscleout.aln", "fasta")
 
 def generate_phylo():
-	#os.system("google-chrome-stable http://bit.ly/1nxxSEW")
+	#os.system("firefox http://bit.ly/1nxxSEW")
 	print "Generating phylogenetic tree using the multiple algnment output using RAxML..."
 	try:
 		#best_likelihood
-		raxml_cline = RaxmlCommandline(sequences="muscleout.fasta", model="GTRGAMMA", threads=20, cmd=raxml_exe, name="T1", parsimony_seed=12345, num_replicates=5)
+		raxml_cline = RaxmlCommandline(sequences="muscleout.aln", model="GTRGAMMA", threads=20, cmd=raxml_exe, name="T1", parsimony_seed=12345, num_replicates=5)
 		stdout, stderr  = raxml_cline()
 		#bootstrap search
-		raxml_cline = RaxmlCommandline(sequences="muscleout.fasta", model="GTRGAMMA", threads=20, cmd=raxml_exe, name="T2", parsimony_seed=12345, num_replicates=5, bootstrap_seed=12345)
+		raxml_cline = RaxmlCommandline(sequences="muscleout.aln", model="GTRGAMMA", threads=20, cmd=raxml_exe, name="T2", parsimony_seed=12345, num_replicates=5, bootstrap_seed=12345)
 		stdout, stderr  = raxml_cline()
 		#draw bipartition
-		raxml_cline = RaxmlCommandline(sequences="muscleout.fasta", model="GTRCAT", threads=20, cmd=raxml_exe, name="T3.nwk", algorithm="b", starting_tree="RAxML_bestTree.T1", bipartition_filename="RAxML_bootstrap.T2")
+		raxml_cline = RaxmlCommandline(sequences="muscleout.aln", model="GTRCAT", threads=20, cmd=raxml_exe, name="T3.nwk", algorithm="b", starting_tree="RAxML_bestTree.T1", bipartition_filename="RAxML_bootstrap.T2")
 		stdout, stderr  = raxml_cline()
 	except :
 		None
@@ -109,32 +109,36 @@ if __name__ == '__main__':
 	parser.add_argument("-input_gff")
 	parser.add_argument("-input_fna")
 	parser.add_argument("-genomes")
+	parser.add_argument("-processor", default=10)
+
 	args = parser.parse_args()
 
-	input_gff = args.input_gff #'/CIBIO/sharedCM/projects/blastocystis/dataset/Blastocystis/ST4/GCF_000743755.1_ASM74375v1_genomic.gff'
-	input_fna = args.input_fna #'/CIBIO/sharedCM/projects/blastocystis/dataset/Blastocystis/ST4/GCF_000743755.1_ASM74375v1_genomic.fna'
-	genomes = args.genomes.split(',') #["GCF_000151665.1_ASM15166v1_genomic.fasta", "GCF_000743755.1_ASM74375v1_genomic.fasta", "ST2_JZRJ01.1.fasta", "ST3_JZRK01.1.fasta", "ST6_JZRM01.1.fasta", "ST8_JZRN01.1.fasta", "ST9_JZRO01.1.fasta"]
-	
+	input_gff = args.input_gff
+	input_fna = args.input_fna
+	genomes = [y for x in map(glob.glob,args.genomes.split(',')) for y in x]
 	for genome in genomes:
 		if not os.path.exists("blastdb"):
 			os.mkdir("blastdb")
 		if not os.path.isfile("blastdb/"+os.path.split(genome)[1].split('.')[0]+".nhr"):
+			print genome
 			os.system("makeblastdb -in %s -out blastdb/%s -dbtype nucl" % (genome, os.path.split(genome)[1].split('.')[0]))
 
 	os.system('grep -Pv "\tmRNA\t|\tCDS\t|\texon\t|\tregion\t" %s > %s' % (input_gff, os.path.splitext(input_gff)[0]+"_genes.gff" ))	
 	os.system("bedtools getfasta -fi %s -bed %s -fo %s -split"  % (input_fna, os.path.splitext(input_gff)[0]+"_genes.gff", os.path.splitext(input_fna)[0]+"_genes.fna"))
 
 	genes = SeqIO.parse(os.path.splitext(input_fna)[0]+"_genes.fna", "fasta")
+	genes = [gene for gene in genes if len(gene.seq)>500]
 
 	terminating = mp.Event()
-	pool = mp.Pool(initializer = initt, initargs=(terminating, ), processes = 50)
-
+	pool = mp.Pool(initializer = initt, initargs=(terminating, ), processes = int(args.processor))
+	common_seq(genes[0])
 	processes = {}
 	try:
 		for j in pool.map(common_seq, genes):
 			c = processes.update(j)
 		pool.close()
 	except:
+		print "Failed"
 		pool.terminate()
 		pool.join()	
 	pool.join()
