@@ -17,8 +17,11 @@ IDEN_THRESHOLD = 0.7
 GENOME_CONSERVATION = 1
 EVALUE = 1e-10
 NPROC=20
+
 muscle_exe = "/scratch/sharedCM/users/beghini/muscle3.8.1551"
 raxml_exe = "/scratch/sharedCM/users/beghini/raxmlHPC-PTHREADS-SSE3"
+trimal_exe = "/home/francesco.beghini/bin/trimal"
+
 genomes = []
 ref_gen = ""
 
@@ -85,9 +88,13 @@ def common_seq(gene):
 
 def muscle_aln():
 	mergedaln = {}
+	# Reuse alignment
 	if len(glob.glob("coregenes/*.fasta")) > 0:
 		print "Running muscle on extracted sequences..."
-		for gene in glob.glob("coregenes/*.fasta"):
+		coregenes = glob.glob("coregenes/*.fasta")
+		for gene in coregenes:
+			print '\r{0:.1%} completed'.format(float(coregenes.index(gene))/len(coregenes)),
+			print ""
 			muscle_cline = MuscleCommandline(muscle_exe, input=gene, maxiters=1)
 			stdout, stderr  = muscle_cline()
 			alignment = AlignIO.read(StringIO(stdout), 'fasta')
@@ -105,6 +112,8 @@ def muscle_aln():
 				else:
 					mergedaln[genome] += "-" * alignment.get_alignment_length()
 		SeqIO.write(mergedaln.values(), "muscleout.aln", "fasta")
+		trimal_cline = "%s -in muscleout.aln -out trimmed_muscleout.aln -gappyout" % (trimal_exe)
+		os.system(trimal_cline)
 	else:
 		print "No sequences to align"
 		exit(0)
@@ -115,17 +124,17 @@ def generate_phylo():
 	print "Generating phylogenetic tree using the multiple algnment output using RAxML..."
 	try:
 		#best_likelihood
-		raxml_cline = RaxmlCommandline(sequences="muscleout.aln", model="GTRGAMMA", threads=NPROC, cmd=raxml_exe, name="T1", parsimony_seed=12345, num_replicates=5)
-		stdout, stderr  = raxml_cline()
 		print "1/3"
+		raxml_cline = RaxmlCommandline(sequences="trimmed_muscleout.aln", model="GTRGAMMA", threads=NPROC, cmd=raxml_exe, name="T1", parsimony_seed=12345, num_replicates=5)
+		stdout, stderr  = raxml_cline()
 		#bootstrap search
-		raxml_cline = RaxmlCommandline(sequences="muscleout.aln", model="GTRGAMMA", threads=NPROC, cmd=raxml_exe, name="T2", parsimony_seed=12345, num_replicates=5, bootstrap_seed=12345)
-		stdout, stderr  = raxml_cline()
 		print "2/3"
-		#draw bipartition
-		raxml_cline = RaxmlCommandline(sequences="muscleout.aln", model="GTRCAT", threads=NPROC, cmd=raxml_exe, name="T3.nwk", algorithm="b", starting_tree="RAxML_bestTree.T1", bipartition_filename="RAxML_bootstrap.T2")
+		raxml_cline = RaxmlCommandline(sequences="trimmed_muscleout.aln", model="GTRGAMMA", threads=NPROC, cmd=raxml_exe, name="T2", parsimony_seed=12345, num_replicates=5, bootstrap_seed=12345)
 		stdout, stderr  = raxml_cline()
+		#draw bipartition
 		print "3/3"
+		raxml_cline = RaxmlCommandline(sequences="trimmed_muscleout.aln", model="GTRCAT", threads=NPROC, cmd=raxml_exe, name="T3.nwk", algorithm="b", starting_tree="RAxML_bestTree.T1", bipartition_filename="RAxML_bootstrap.T2")
+		stdout, stderr  = raxml_cline()
 	except Exception,e: 
 		print str(e)
 		exit(0)
