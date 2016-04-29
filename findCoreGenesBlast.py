@@ -1,5 +1,5 @@
 #!/usr/bin/env python 
-import Bio, os, argparse, glob, sys, pickle
+import Bio, os, argparse, glob, sys
 import pandas as pd
 import multiprocessing as mp
 import warnings
@@ -17,6 +17,7 @@ IDEN_THRESHOLD = 0.7
 GENOME_CONSERVATION = 1
 EVALUE = 1e-10
 NPROC=20
+BOOTSTRAP=50
 
 muscle_exe = "/scratch/sharedCM/users/beghini/muscle3.8.1551"
 raxml_exe = "/scratch/sharedCM/users/beghini/raxmlHPC-PTHREADS-SSE3"
@@ -94,7 +95,6 @@ def muscle_aln():
 		coregenes = glob.glob("coregenes/*.fasta")
 		for gene in coregenes:
 			print '\r{0:.1%} completed'.format(float(coregenes.index(gene))/len(coregenes)),
-			print ""
 			muscle_cline = MuscleCommandline(muscle_exe, input=gene, maxiters=1)
 			stdout, stderr  = muscle_cline()
 			alignment = AlignIO.read(StringIO(stdout), 'fasta')
@@ -111,6 +111,7 @@ def muscle_aln():
 					mergedaln[genome] = "-" * alignment.get_alignment_length()
 				else:
 					mergedaln[genome] += "-" * alignment.get_alignment_length()
+		#pickle.dump(mergedaln, open("mergedaln","wb"))			
 		SeqIO.write(mergedaln.values(), "muscleout.aln", "fasta")
 		trimal_cline = "%s -in muscleout.aln -out trimmed_muscleout.aln -gappyout" % (trimal_exe)
 		os.system(trimal_cline)
@@ -125,11 +126,11 @@ def generate_phylo():
 	try:
 		#best_likelihood
 		print "1/3"
-		raxml_cline = RaxmlCommandline(sequences="trimmed_muscleout.aln", model="GTRGAMMA", threads=NPROC, cmd=raxml_exe, name="T1", parsimony_seed=12345, num_replicates=5)
+		raxml_cline = RaxmlCommandline(sequences="trimmed_muscleout.aln", model="GTRGAMMA", threads=NPROC, cmd=raxml_exe, name="T1", parsimony_seed=12345, num_replicates=BOOTSTRAP)
 		stdout, stderr  = raxml_cline()
 		#bootstrap search
 		print "2/3"
-		raxml_cline = RaxmlCommandline(sequences="trimmed_muscleout.aln", model="GTRGAMMA", threads=NPROC, cmd=raxml_exe, name="T2", parsimony_seed=12345, num_replicates=5, bootstrap_seed=12345)
+		raxml_cline = RaxmlCommandline(sequences="trimmed_muscleout.aln", model="GTRGAMMA", threads=NPROC, cmd=raxml_exe, name="T2", parsimony_seed=12345, num_replicates=BOOTSTRAP, bootstrap_seed=12345)
 		stdout, stderr  = raxml_cline()
 		#draw bipartition
 		print "3/3"
@@ -140,7 +141,7 @@ def generate_phylo():
 		exit(0)
 
 if __name__ == '__main__':
-	warnings.filterwarnings("ignore")	
+	warnings.filterwarnings("ignore")
 	parser = argparse.ArgumentParser()
 
 	parser.add_argument("-input_gff")
@@ -152,6 +153,8 @@ if __name__ == '__main__':
 	parser.add_argument("-len_threshold", default=500)
 	parser.add_argument("-genome_conservation", default=0.9)
 	parser.add_argument("-evalue", default=1e-50)
+	parser.add_argument("-bootstrap", default=50)
+
 	if len(sys.argv)==1:
 		parser.print_help()
 		sys.exit(1)
@@ -166,6 +169,7 @@ if __name__ == '__main__':
 	LEN_THRESHOLD = int(args.len_threshold)
 	GENOME_CONSERVATION = float(args.genome_conservation)
 	EVALUE = float(args.evalue)
+	BOOTSTRAP=int(args.bootstrap)
 
 	genomes = list(set([y for x in map(glob.glob,args.genomes.split(',')) for y in x]))
 	#print genomes
