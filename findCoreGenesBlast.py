@@ -1,12 +1,14 @@
 #!/usr/bin/env python 
-import Bio, os, argparse, glob, sys
+import Bio, os, argparse, glob, sys, pickle
 import pandas as pd
 import multiprocessing as mp
 import warnings
 with warnings.catch_warnings():
 	warnings.simplefilter("ignore")
-	from Bio import SearchIO, SeqIO, AlignIO
+	from Bio import SearchIO, SeqIO, AlignIO, SeqRecord, Seq
 	from StringIO import StringIO
+	from Bio.SeqRecord import SeqRecord
+	from Bio.Seq import Seq
 	from Bio.Blast.Applications import NcbiblastnCommandline
 	from Bio.Align.Applications import MuscleCommandline
 	from Bio.Phylo.Applications import RaxmlCommandline
@@ -105,13 +107,13 @@ def muscle_aln():
 					mergedaln[seq.id] = seq
 				else:
 					mergedaln[seq.id] += seq
-			missing_genome = set([os.path.split(genome)[1].split('.')[0] for genome in genomes]) - set([seq.id for seq in alignment])
+			missing_genome = list(set([os.path.split(genome)[1].split('.')[0] for genome in genomes]) - set([seq.id for seq in alignment]))
 			for genome in missing_genome:
 				if genome not in mergedaln:
-					mergedaln[genome] = "-" * alignment.get_alignment_length()
+					mergedaln[genome] = SeqRecord(Seq("-" * alignment.get_alignment_length(),Bio.Alphabet.SingleLetterAlphabet()),id=genome, name=genome,description=genome)
 				else:
 					mergedaln[genome] += "-" * alignment.get_alignment_length()
-		#pickle.dump(mergedaln, open("mergedaln","wb"))			
+		pickle.dump(mergedaln, open("mergedaln","wb"))			
 		SeqIO.write(mergedaln.values(), "muscleout.aln", "fasta")
 		trimal_cline = "%s -in muscleout.aln -out trimmed_muscleout.aln -gappyout" % (trimal_exe)
 		os.system(trimal_cline)
@@ -120,7 +122,6 @@ def muscle_aln():
 		exit(0)
 
 def generate_phylo():
-	#os.system("firefox http://bit.ly/1nxxSEW")
 	[os.remove(x) for x in glob.glob("RAxML_*")]
 	print "Generating phylogenetic tree using the multiple algnment output using RAxML..."
 	try:
