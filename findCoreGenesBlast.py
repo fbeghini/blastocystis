@@ -178,7 +178,6 @@ if __name__ == '__main__':
 		if not os.path.exists("blastdb"):
 			os.mkdir("blastdb")
 		if not os.path.isfile("blastdb/"+os.path.split(genome)[1].split('.')[0]+".nhr"):
-			print genome
 			os.system("makeblastdb -in %s -out blastdb/%s -dbtype nucl" % (genome, os.path.split(genome)[1].split('.')[0]))
 	if(input_ffn is None):
 		ref_gen = os.path.split(input_fna)[1].split('.')[0]

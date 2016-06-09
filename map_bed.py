@@ -24,9 +24,9 @@ def bedmap(inputBED, contigGenome):
 	meta = pd.DataFrame()
 
 	for id, ds in bed.groupby('id'):
-		ds['baseCovered'] = ds['end']-ds['start']
+		ds.loc[:,'baseCovered'] = ds['end']-ds['start']
 		try:
-			ds['nucleotidesCovered']=(ds['baseCovered']*ds['depthCoverage'])#/float(genomeMap[genomeMap.id==id].len)
+			ds.loc[:,'nucleotidesCovered']=(ds['baseCovered']*ds['depthCoverage'])#/float(genomeMap[genomeMap.id==id].len)
 		except:
 			print inputBED, id
 		meta = meta.append({'id':id, 'baseCovered' : np.sum(ds.baseCovered), 'nucleotidesCovered' : np.sum(ds.nucleotidesCovered), 'totalReads' : np.sum(ds.depthCoverage) },ignore_index=True)	
