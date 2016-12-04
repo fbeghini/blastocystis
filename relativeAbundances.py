@@ -2,6 +2,8 @@
 import argparse, os, subprocess
 import pandas as pd
 import numpy as np
+      
+pd.options.mode.chained_assignment = None
 
 f = lambda x: x.split("|")[1] if "|" in x else x
 

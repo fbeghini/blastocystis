@@ -1,6 +1,6 @@
 #! /usr/bin/env python
 
-import os, argparse, sys, subprocess, tarfile, fastq_len_filter, StringIO, map_bed
+import os, argparse, sys, subprocess, tarfile, fastq_len_filter, StringIO, map_bed, bz2, gzip, glob
 from Bio import SeqIO
 from tempfile import NamedTemporaryFile
 
@@ -30,30 +30,47 @@ if __name__ == '__main__':
 
 	args = parser.parse_args()
 	mg = args.metagenomes
-	outname = os.path.abspath(args.output_folder) + "/" + mg.split('/')[-1].split('.')[0]
+	lenfilter = int(args.len_filter)
+        outname = os.path.abspath(args.output_folder) + "/" + mg.split('/')[-1].split('.')[0]
 
 	#Extract mates for paired inputs with FR
 
 	if(args.input_type == 'FR'):
-		print "Listing the content of %s ..." %mg
-		try:
-			mates = tarfile.open(mg, 'r:bz2').getnames()
-		except IOError, e:
-			raise e
-		mate1 = [m for m in mates if "_1" in m]
-		mate2 = [m for m in mates if "_2" in m]
+		if("tar" in mg):
 
-		forward	 = NamedTemporaryFile(delete=True, dir=tempdir)
-		reverse = NamedTemporaryFile(delete=True, dir=tempdir)
+			print "Listing the content of %s ..." %mg
+			#try:
+			#	mates = tarfile.open(mg, 'r:bz2').getnames()
+			#except IOError, e:
+			#	raise e
+			#mate1 = [m for m in mates if "_1" in m]
+			#mate2 = [m for m in mates if "_2" in m]
+	
+			forward = NamedTemporaryFile(delete=True, dir=tempdir)
+			reverse = NamedTemporaryFile(delete=True, dir=tempdir)
+	
+			print "\tBuilding forward mate..."
+			tf = subprocess.Popen('tar -xjf %s --wildcards "*_1*" -O'%(mg), shell=True, stdout=subprocess.PIPE)
+			fastq_len_filter.filter(lenfilter, StringIO.StringIO(tf.communicate()[0]),forward)
+	
+			print "\tBuiling reverse mate..."
+			tr = subprocess.Popen('tar -xjf %s --wildcards "*_2*" -O'%(mg), shell=True, stdout=subprocess.PIPE)
+			fastq_len_filter.filter(lenfilter, StringIO.StringIO(tr.communicate()[0]),reverse)
+		elif ("fastq.bz2" in mg or "fastq.gz" in mg):
+			if("fastq.bz2" in mg):
+				openmode = bz2.BZ2File
+			elif("fastq.gz" in mg):
+				openmode = gzip.open	
+			
+			forward = openmode(glob.glob(mg.replace(".fastq","_*1.fastq"))[0])
+			reverse = openmode(glob.glob(mg.replace(".fastq","_*2.fastq"))[0])
+			# 
+			# forward	= NamedTemporaryFile(delete=True, dir=tempdir)	
+			# reverse = NamedTemporaryFile(delete=True, dir=tempdir)
 
-		print "\tBuilding forward mate..."
-		tf = subprocess.Popen("tar -xjf %s %s -O"%(mg, " ".join(mate1)), shell=True, stdout=subprocess.PIPE)
-		fastq_len_filter.filter(args.len_filter, StringIO.StringIO(tf.communicate()[0]),forward)
-
-		print "\tBuiling reverse mate..."
-		tr = subprocess.Popen("tar -xjf %s %s -O"%(mg, " ".join(mate2)), shell=True, stdout=subprocess.PIPE)
-		fastq_len_filter.filter(args.len_filter, StringIO.StringIO(tr.communicate()[0]),reverse)
-
+			# fastq_len_filter.filter(args.len_filter, StringIO.StringIO(reverse_mate.readlines()),reverse)
+			# fastq_len_filter.filter(args.len_filter, StringIO.StringIO(forward_mate.readlines()),forward)
+				
 		print "\tDone!"
 		com = "bowtie2 --no-unal -a --very-sensitive -p 2 -x %s -1 %s -2 %s | samtools view -Sb -" % (args.basename_index, forward.name, reverse.name)
 
@@ -66,8 +83,8 @@ if __name__ == '__main__':
 		dump.wait()
 		mgname = mg.split(".")[0]
 
-		fastq_len_filter.filter(args.len_filter,open(tempdir+"/"+mgname+"_1.fastq",'r'),open(tempdir+"/"+mgname+"_1.filtered.fastq",'w'))
-		fastq_len_filter.filter(args.len_filter,open(tempdir+"/"+mgname+"_2.fastq",'r'),open(tempdir+"/"+mgname+"_2.filtered.fastq",'w'))
+		fastq_len_filter.filter(lenfilter,open(tempdir+"/"+mgname+"_1.fastq",'r'),open(tempdir+"/"+mgname+"_1.filtered.fastq",'w'))
+		fastq_len_filter.filter(lenfilter,open(tempdir+"/"+mgname+"_2.fastq",'r'),open(tempdir+"/"+mgname+"_2.filtered.fastq",'w'))
 		
 		com = "bowtie2 --no-unal -a --very-sensitive -p 2 -x %s -1 %s_1.filtered.fastq -2 %s_2.filtered.fastq | samtools view -Sb -" % (args.basename_index, tempdir+"/"+mgname, tempdir+"/"+mgname)
 
@@ -119,4 +136,4 @@ if __name__ == '__main__':
 	with open("%s.bed" % (outname),"w") as bedout:
 		bedout.writelines(bed.communicate()[0])
 
-	map_bed.bedmap("%s.bed" % outname, args.genomeMap)
+	map_bed.bedmap("%s.bed" % outname, args.genomeMap, "/CIBIO/sharedCM/projects/blastocystis/genome_filtering/remove.lst")
